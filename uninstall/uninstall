@@ -21,4 +21,7 @@ PBIN=$LBPBIN/$PDIR
 
 # your code goes here
 
+rm -rf /opt/loxberry/data/plugins/timetrackingplugin/
+echo "MyPlugin uninstalled" >> /opt/loxberry/log/plugins/timetrackingplugin/uninstall.log
+
 exit 0;

@@ -1,0 +1,18 @@
+
+services:
+  mongodb:
+    image: mongo:6
+    container_name: loxberry_mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./data:/data/db
+
+  mqtt_listener:
+    image: python:3.12-slim
+    container_name: loxberry_mqtt_listener
+    restart: always
+    volumes:
+      - ./bin:/app
+    command: python /app/mqtt_listener.py
