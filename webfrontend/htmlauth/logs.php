@@ -1,44 +1,5 @@
 <?php
 require_once "loxberry_web.php";
-<<<<<<< HEAD
-=======
-
-// This will read your language files to the array $L
-$L = LBSystem::readlanguage("language.ini");
-
-$template_title = "TimeTracking plugin";
-$helplink = "http://www.loxwiki.eu:80/x/2wzL";
-$helptemplate = "help.html";
-
-// The Navigation Bar
-$navbar[1]['Name'] = 'Status';
-$navbar[1]['URL'] = 'index.php';
-
-$navbar[2]['Name'] = 'MQTT Settings';
-$navbar[2]['URL'] = 'mqtt.php';
-$navbar[3]['active'] = True;
-
-$navbar[3]['Name'] = 'Logs';
-$navbar[3]['URL'] = 'logs.php';
-
-// Now output the header, it will include your navigation bar
-LBWeb::lbheader($template_title, $helplink, $helptemplate);
-
-// This is the main area for your plugin
-?>
-
-<?php
-$logFile = '/opt/loxberry/data/plugins/timetrackingplugin/timetracking_mqtt.log';
-
-// Check if the log file exists
-if (!file_exists($logFile)) {
-    die("Log file not found.");
-}
-
-// Read the contents of the log file
-$logContents = file($logFile, <?php
-require_once "loxberry_web.php";
->>>>>>> f77fddfd6f50428b11db86d11d5bac5a61d792a3
 require_once "loxberry_system.php";
 
 $L = LBSystem::readlanguage("language.ini");

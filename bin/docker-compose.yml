@@ -16,15 +16,10 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: mqtt-listener
-    ports:
-      - "1883:1883"
     depends_on:
       - mongodb
     volumes:
-      - ./timetracking:/app
-      - ./logs:/opt/loxberry/data/plugins/timetracking-plugin
-    environment:
-      - PYTHONUNBUFFERED=1
+      - ./logs:/opt/loxberry/data/plugins/timetrackingplugin
     networks:
       timetracking_net:
         ipv4_address: 172.28.0.20
