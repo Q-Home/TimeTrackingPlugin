@@ -20,6 +20,11 @@ PSBIN=$LBPSBIN/$PDIR
 PBIN=$LBPBIN/$PDIR
 
 # your code goes here
+REPO_DIR="/opt/loxberry/bin/plugins/TimeTrackingPlugin"
+# --- Start Docker Compose ---
+cd "$REPO_DIR" || exit 1
+echo "Stopping Docker Compose services..."
+docker compose down 
 
 rm -rf /opt/loxberry/data/plugins/timetrackingplugin/
 echo "MyPlugin uninstalled" >> /opt/loxberry/log/plugins/timetrackingplugin/uninstall.log

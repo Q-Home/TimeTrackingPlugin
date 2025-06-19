@@ -11,12 +11,13 @@ services:
       timetracking_net:
         ipv4_address: 172.28.0.10
 
-
   mqtt-listener:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: mqtt-listener
+    ports:
+      - "1883:1883"
     depends_on:
       - mongodb
     volumes:

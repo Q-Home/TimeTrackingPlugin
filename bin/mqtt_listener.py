@@ -18,6 +18,7 @@ MQTT_PUB_TOPIC = "loxberry/timetracking"
 
 # ---------------- Logging Function ----------------
 def log(msg):
+    print(f"[{datetime.now()}] {msg}")  # PRINT to stdout for Docker logs
     os.makedirs(os.path.dirname(LOGFILE), exist_ok=True)
     with open(LOGFILE, "a") as f:
         f.write(f"[{datetime.now()}] {msg}\n")
@@ -25,6 +26,7 @@ def log(msg):
 # ---------------- MongoDB Operations ----------------
 def insert_to_db(badgecode, user, scan_time, status):
     try:
+        log("Connecting to MongoDB...")
         client = MongoClient("mongodb://localhost:27017/")
         db = client[DB_NAME]
         collection = db[COLLECTION_NAME]
@@ -34,11 +36,15 @@ def insert_to_db(badgecode, user, scan_time, status):
             "scan_time": scan_time,
             "status": status
         })
-        log(f"Inserted: badgecode='{badgecode}', user='{user}', scan_time='{scan_time}', status='{status}'")
+        log(f"Inserted into MongoDB: badgecode='{badgecode}', user='{user}', scan_time='{scan_time}', status='{status}'")
     except Exception as e:
         log(f"Database error: {e}")
     finally:
-        client.close()
+        try:
+            client.close()
+            log("MongoDB connection closed.")
+        except Exception as e:
+            log(f"Error closing MongoDB connection: {e}")
 
 # ---------------- MQTT Publishing ----------------
 def publish_to_loxone(client, badgecode, user, scan_time, status):
@@ -47,8 +53,8 @@ def publish_to_loxone(client, badgecode, user, scan_time, status):
     else:
         message = f"{scan_time},{status}"
     try:
+        log(f"Publishing to Loxone MQTT: {message}")
         client.publish(MQTT_PUB_TOPIC, message)
-        log(f"Published to Loxone MQTT: {message}")
     except Exception as e:
         log(f"Failed to publish to Loxone MQTT: {e}")
 
@@ -67,15 +73,16 @@ def on_message(client, userdata, msg):
 
     scan_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     if payload == "Access Denied":
+        log("Processing 'Access Denied' message.")
         insert_to_db("", "", scan_time, "Access Denied")
         publish_to_loxone(client, "", "", scan_time, "Access Denied")
-        log("Logged access denied")
     else:
         parts = payload.split(";")
         if len(parts) >= 3:
             badgecode = parts[0].strip()
             user = parts[1].strip()
             scan_time = parts[2].strip()
+            log(f"Processing 'Access Granted': badgecode={badgecode}, user={user}, scan_time={scan_time}")
             insert_to_db(badgecode, user, scan_time, "Access Granted")
             publish_to_loxone(client, badgecode, user, scan_time, "Access Granted")
         else:
@@ -83,26 +90,34 @@ def on_message(client, userdata, msg):
 
 # ---------------- Main Loop ----------------
 def main():
+    log("Starting timetracking MQTT script...")
+
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.username_pw_set("loxberry", "loxberry")
     client.on_connect = on_connect
     client.on_message = on_message
 
     try:
+        log(f"Connecting to MQTT broker at {MQTT_BROKER}:{MQTT_PORT}...")
         client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
     except Exception as e:
         log(f"MQTT connection error: {e}")
         return
 
     client.loop_start()
+    log("MQTT loop started.")
 
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        log("Shutting down gracefully.")
+        log("KeyboardInterrupt: Shutting down gracefully.")
+    except Exception as e:
+        log(f"Unexpected error in main loop: {e}")
+    finally:
         client.loop_stop()
         client.disconnect()
+        log("MQTT client disconnected.")
 
 if __name__ == "__main__":
     main()

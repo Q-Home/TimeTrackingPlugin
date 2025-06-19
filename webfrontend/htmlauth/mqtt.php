@@ -24,7 +24,7 @@ LBWeb::lbheader($template_title, $helplink, $helptemplate);
 
 // Define variables
 $config_file = './mqtt_config.ini';
-$log_file = './Log_file.log';
+$logFile = '/opt/loxberry/data/plugins/timetrackingplugin/timetracking_mqtt.log';
 
 // Logging function
 function log_message($level, $message) {
