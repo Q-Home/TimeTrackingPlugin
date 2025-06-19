@@ -27,12 +27,8 @@ def log(msg):
 # ---------------- MongoDB Operations ----------------
 def insert_to_db(badgecode, user, scan_time, status):
     try:
-<<<<<<< HEAD
         log("Connecting to MongoDB...")
         client = MongoClient("mongodb://localhost:27017/")
-=======
-        client = MongoClient("localhost:27017/")
->>>>>>> 4d0b011c0186a8ef1655b921f5fb95b049097784
         db = client[DB_NAME]
         collection = db[COLLECTION_NAME]
         collection.insert_one({
