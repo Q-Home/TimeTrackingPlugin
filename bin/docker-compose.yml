@@ -1,18 +1,38 @@
-
 services:
   mongodb:
-    image: mongo:6
-    container_name: loxberry_mongodb
-    restart: always
+    image: mongo:latest
+    container_name: mongodb
+    restart: unless-stopped
     ports:
       - "27017:27017"
     volumes:
-      - ./data:/data/db
+      - mongodb_data:/data/db
+    networks:
+      timetracking_net:
+        ipv4_address: 172.28.0.10
 
-  mqtt_listener:
-    image: python:3.12-slim
-    container_name: loxberry_mqtt_listener
-    restart: always
+
+  mqtt-listener:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mqtt-listener
+    depends_on:
+      - mongodb
     volumes:
-      - ./bin:/app
-    command: python /app/mqtt_listener.py
+      - ./timetracking:/app
+      - ./logs:/opt/loxberry/data/plugins/timetracking-plugin
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      timetracking_net:
+        ipv4_address: 172.28.0.20
+
+volumes:
+  mongodb_data:
+
+networks:
+  timetracking_net:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
