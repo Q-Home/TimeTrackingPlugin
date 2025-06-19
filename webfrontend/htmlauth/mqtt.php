@@ -4,7 +4,7 @@ require_once "loxberry_system.php";
 
 // This will read your language files to the array $L
 $L = LBSystem::readlanguage("language.ini");
-$template_title = "OZW672 Plugin";
+$template_title = "TimeTracking Plugin";
 $helplink = "http://www.loxwiki.eu:80/x/2wzL";
 $helptemplate = "help.html";
 
@@ -15,6 +15,9 @@ $navbar[1]['URL'] = 'index.php';
 $navbar[2]['Name'] = 'MQTT Settings';
 $navbar[2]['URL'] = 'mqtt.php';
 $navbar[2]['active'] = True;
+
+$navbar[3]['Name'] = 'Logs';
+$navbar[3]['URL'] = 'logs.php';
 
 // Now output the header, it will include your navigation bar
 LBWeb::lbheader($template_title, $helplink, $helptemplate);

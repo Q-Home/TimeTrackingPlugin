@@ -16,7 +16,9 @@ $navbar[1]['URL'] = 'index.php';
 $navbar[2]['Name'] = 'MQTT Settings';
 $navbar[2]['URL'] = 'mqtt.php';
 $navbar[1]['active'] = True;
-
+$navbar[1]['active'] = True;
+$navbar[3]['Name'] = 'Logs';
+$navbar[3]['URL'] = 'logs.php';
 // Header tonen
 LBWeb::lbheader($template_title, $helplink, $helptemplate);
 ?>
