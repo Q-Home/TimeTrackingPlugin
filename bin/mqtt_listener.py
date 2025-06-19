@@ -10,7 +10,7 @@ collection = db["logs"]
 # MQTT instellingen
 MQTT_BROKER = "192.168.1.x"  # of 'loxberry.local'
 MQTT_PORT = 1883
-MQTT_TOPIC = "badge/#"
+MQTT_TOPIC = "miniserver/timetracking"
 
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code "+str(rc))
