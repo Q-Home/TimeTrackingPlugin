@@ -34,3 +34,5 @@ done
 
 # Clean up install scripts
 rm /opt/loxberry/bin/plugins/timetrackingplugin/run_docker_compose.sh
+
+pip install pymongo paho-mqtt

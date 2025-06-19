@@ -9,7 +9,7 @@ import paho.mqtt.client as mqtt
 DB_FOLDER = "/opt/loxberry/data/plugins/timetracking-plugin"
 DB_NAME = "timetracking"
 COLLECTION_NAME = "devices"
-LOGFILE = os.path.join(DB_FOLDER, "timetracking_mqtt.log")
+LOGFILE = os.path.join("/opt/loxberry/data/plugins/timetracking_mqtt.log")
 
 MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
@@ -21,11 +21,12 @@ def log(msg):
     os.makedirs(os.path.dirname(LOGFILE), exist_ok=True)
     with open(LOGFILE, "a") as f:
         f.write(f"[{datetime.now()}] {msg}\n")
+        print(f"[{datetime.now()}] {msg}\n")
 
 # ---------------- MongoDB Operations ----------------
 def insert_to_db(badgecode, user, scan_time, status):
     try:
-        client = MongoClient("mongodb://localhost:27017/")
+        client = MongoClient("localhost:27017/")
         db = client[DB_NAME]
         collection = db[COLLECTION_NAME]
         collection.insert_one({
