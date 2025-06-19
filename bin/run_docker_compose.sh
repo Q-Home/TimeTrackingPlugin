@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --- Constants ---
-REPO_DIR="/opt/loxberry/bin/plugins/TimeTrackingPlugin"
+REPO_DIR="/opt/loxberry/bin/plugins/timetrackingplugin"
 
 # --- Check for root if needed ---
 if ! docker info &> /dev/null; then
