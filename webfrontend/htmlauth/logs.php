@@ -8,13 +8,13 @@ $helplink = "http://www.loxwiki.eu:80/x/2wzL";
 $helptemplate = "help.html";
 
 // Navigation
-$navbar[1]['Name'] = 'Home';
+$navbar[1]['Name'] = 'Status';
 $navbar[1]['URL'] = 'index.php';
-$navbar[2]['Name'] = 'Settings';
-$navbar[2]['URL'] = 'settings.php';
+$navbar[3]['active'] = True;
+$navbar[2]['Name'] = 'MQTT Settings';
+$navbar[2]['URL'] = 'mqtt.php';
 $navbar[3]['Name'] = 'Logs';
 $navbar[3]['URL'] = 'logs.php';
-$navbar[3]['active'] = true;
 
 LBWeb::lbheader($template_title, $helplink, $helptemplate);
 
