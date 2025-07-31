@@ -94,6 +94,7 @@ def send_email(receiver, subject, body):
 
 
 # ---------------- MQTT Publishing ----------------
+# test
 def publish_to_loxone(client, badgecode, user, scan_time, status):
     if status == "granted":
         message = f"{badgecode},{user},{scan_time},{status}"
