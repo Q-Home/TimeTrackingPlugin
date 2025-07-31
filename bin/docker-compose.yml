@@ -13,7 +13,7 @@ services:
 
   mqtt-listener:
     build:
-      context: .
+      context: ./MQTTService
       dockerfile: Dockerfile
     container_name: mqtt-listener
     depends_on:
@@ -23,6 +23,19 @@ services:
     networks:
       timetracking_net:
         ipv4_address: 172.28.0.20
+
+  webapp:
+    build:
+      context: ./Webapp
+      dockerfile: Dockerfile
+    container_name: webapp
+    depends_on:
+      - mongodb
+    ports:
+      - "8080:8080"
+    networks:
+      timetracking_net:
+        ipv4_address: 172.28.0.30
 
 volumes:
   mongodb_data:
