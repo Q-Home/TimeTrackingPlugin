@@ -1,0 +1,20 @@
+# Gebruik de officiële Nginx image als basis
+FROM nginx:1.25-alpine
+
+# Verwijder de standaard Nginx configuratie
+RUN rm /etc/nginx/conf.d/default.conf
+
+# Kopieer je Nginx configuratie naar de container
+COPY nginx.conf /etc/nginx/conf.d
+
+# Kopieer de inhoud van je frontend project naar de juiste directory in de container
+COPY . /usr/share/nginx/html
+
+# Stel de juiste permissies in
+RUN chmod -R 755 /usr/share/nginx/html
+
+# Exposeer poort 80
+EXPOSE 80
+
+# Start Nginx wanneer de container start
+CMD ["nginx", "-g", "daemon off;"]
