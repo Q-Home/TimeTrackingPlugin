@@ -1,0 +1,20 @@
+# Gebruik een standaard Python image voor x86-64 architectuur
+FROM python:3.9-slim
+
+# Stel de werkdirectory in
+WORKDIR /app
+
+# Kopieer de requirements en installeer dependencies
+COPY requirements.txt .
+
+# Installeer de Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Kopieer de rest van de applicatiebestanden
+COPY . .
+
+# Expose de poort waarop Flask draait (bijvoorbeeld 5000)
+EXPOSE 5000
+
+# Start de Flask applicatie
+CMD ["python", "app.py"]

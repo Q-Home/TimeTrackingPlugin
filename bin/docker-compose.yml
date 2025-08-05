@@ -32,10 +32,28 @@ services:
     depends_on:
       - mongodb
     ports:
-      - "8080:8080"
+      - "8080:80"
     networks:
       timetracking_net:
         ipv4_address: 172.28.0.30
+  
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    depends_on:
+      - mongodb
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGO_URI="mongodb://admin:adminpassword@172.28.0.10:27017"
+      - SECRET_KEY="dfhgfjllkjmlkjlkmjgfjhgkjljkljkfxde"
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      timetracking_net:
+        ipv4_address: 172.28.0.15
 
 volumes:
   mongodb_data:
