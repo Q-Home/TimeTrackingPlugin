@@ -8,8 +8,8 @@ from flask_pymongo import PyMongo
 from flask_cors import CORS
 from bson.objectid import ObjectId
 import bcrypt
-
-from datetime import timedelta
+from datetime import datetime, timedelta
+import re
 import datetime
 from werkzeug.utils import secure_filename
 import threading
@@ -223,6 +223,108 @@ def get_user(username):
         "blocked": user['blocked']
     }
     return jsonify(user1), 200
+
+
+@app.route(f'{endpoint}/badges/', methods=['GET'])
+def get_badges():
+    """
+    Retrieve badge scan data with optional filtering by date range, month, or day.
+    Query parameters (all optional):
+    - start_date: YYYY-MM-DD format
+    - end_date: YYYY-MM-DD format  
+    - month: YYYY-MM format
+    - day: YYYY-MM-DD format
+    - badge_code: filter by specific badge
+    - user: filter by specific user
+    """
+    try:
+        # Build MongoDB filter - start with empty filter
+        filter_query = {}
+        
+        # Get query parameters (all optional)
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        month = request.args.get('month')
+        day = request.args.get('day')
+        badge_code = request.args.get('badge_code')
+        user = request.args.get('user')
+        
+        # Date filtering - only apply if parameters are provided
+        if day:
+            # Filter by specific day (YYYY-MM-DD)
+            try:
+                day_start = datetime.strptime(day, '%Y-%m-%d')
+                day_end = day_start + timedelta(days=1)
+                filter_query['scan_time'] = {
+                    '$gte': day_start.isoformat(),
+                    '$lt': day_end.isoformat()
+                }
+            except ValueError:
+                return jsonify({"message": "Invalid day format. Use YYYY-MM-DD"}), 400
+                
+        elif month:
+            # Filter by month (YYYY-MM)
+            try:
+                month_start = datetime.strptime(month + '-01', '%Y-%m-%d')
+                if month_start.month == 12:
+                    month_end = month_start.replace(year=month_start.year + 1, month=1)
+                else:
+                    month_end = month_start.replace(month=month_start.month + 1)
+                filter_query['scan_time'] = {
+                    '$gte': month_start.isoformat(),
+                    '$lt': month_end.isoformat()
+                }
+            except ValueError:
+                return jsonify({"message": "Invalid month format. Use YYYY-MM"}), 400
+                
+        elif start_date and end_date:
+            # Filter by date range - only if both dates are provided
+            try:
+                start = datetime.strptime(start_date, '%Y-%m-%d')
+                end = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+                filter_query['scan_time'] = {
+                    '$gte': start.isoformat(),
+                    '$lt': end.isoformat()
+                }
+            except ValueError:
+                return jsonify({"message": "Invalid date format. Use YYYY-MM-DD"}), 400
+        
+        # Additional filters - only apply if provided
+        if badge_code:
+            filter_query['badgecode'] = badge_code
+            
+        if user:
+            filter_query['user'] = user
+        
+        # Query database with filter (empty filter returns all documents)
+        badges_cursor = mongo.cx['timetracking']['devices'].find(filter_query).sort("scan_time", -1)
+        
+        badges = []
+        for badge in badges_cursor:
+            badges.append({
+                "badgecode": badge.get("badgecode", ""),
+                "user": badge.get("user", ""),
+                "scan_time": badge.get("scan_time", ""),
+                "action": badge.get("action", ""),
+                "timestamp": badge.get("_id").generation_time.strftime("%Y-%m-%d %H:%M:%S") if badge.get("_id") else ""
+            })
+        
+        return jsonify({
+            "badges": badges,
+            "count": len(badges),
+            "filters_applied": {
+                "start_date": start_date,
+                "end_date": end_date,
+                "month": month,
+                "day": day,
+                "badge_code": badge_code,
+                "user": user
+            }
+        }), 200
+        
+    except Exception as e:
+        log_error(f"Error retrieving badges: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route(f'{endpoint}/logout/', methods=["POST"])
