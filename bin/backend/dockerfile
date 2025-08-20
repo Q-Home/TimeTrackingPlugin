@@ -16,5 +16,9 @@ COPY . .
 # Expose de poort waarop Flask draait (bijvoorbeeld 5000)
 EXPOSE 5000
 
+# Omgevingsvariabelen (kunnen worden overschreven door Docker Compose)
+ENV MONGO_URI=""
+ENV SECRET_KEY="default_secret_key"
+ENV FLASK_ENV="production"
 # Start de Flask applicatie
 CMD ["python", "app.py"]

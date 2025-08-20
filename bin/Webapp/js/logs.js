@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   // const url = "http://173.212.225.50:8000"; process.env.URL || "http://173.212.225.50:8000"; // Basis-URL
-  const url = "http://173.212.225.50:8000";
+  const url = "http://172.28.0.15:5000";
   const logsEndpoint = url + "/api/v1/transactie/all/"; // Endpoint om logs op te halen
   const tableBody = document.querySelector(".js-Logs");
   const paginationContainer = document.getElementById("pagination");

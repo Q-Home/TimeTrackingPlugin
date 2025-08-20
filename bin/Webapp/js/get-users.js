@@ -1,6 +1,6 @@
 
 
-const url = "http://173.212.225.50:8000";  // Basis-URL
+const url = "http://172.28.0.15:8000";  // Basis-URL
 
 // Haal de rol van de huidige gebruiker op uit sessionStorage
 const role = sessionStorage.getItem('role'); // Verwacht "Admin" of andere rollen (bijv. "User")

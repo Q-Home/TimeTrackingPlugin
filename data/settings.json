@@ -1,0 +1,7 @@
+{
+    "backend_url": "http://localhost:5000/api/v1",
+    "mongo_host": "mongodb://192.168.0.100:27017",
+    "mongo_db": "timetracking",
+    "mongo_collection": "devices",
+    "settings_file": "/opt/loxberry/data/plugins/timetrackingplugin/settings.json"
+}

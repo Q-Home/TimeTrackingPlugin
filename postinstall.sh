@@ -21,6 +21,6 @@ PSBIN=$LBPSBIN/$PDIR
 sudo apt-get update
 # sudo apt-get install -y php-mongodb
 # sudo systemctl restart apache2
-sudo /opt/loxberry/bin/plugins/timetrackingplugin/run_docker_compose.sh
+# sudo /opt/loxberry/bin/plugins/timetrackingplugin/run_docker_compose.sh
 
 exit 0;

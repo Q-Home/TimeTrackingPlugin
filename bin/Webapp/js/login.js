@@ -1,5 +1,5 @@
 
-const url = "http://173.212.225.50:8000";
+const url = "http://172.28.0.15:5000";
 
 document.addEventListener("DOMContentLoaded", function () {
     console.debug('Document is geladen, event listeners worden ingesteld.'); // Debugging
@@ -44,7 +44,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         } catch (error) {
             console.error('Fout tijdens het inloggen:', error);
-            window.location.href = "/Backoffice/Frontend/pages-error-500.html";
+            window.location.href = "/pages-error-500.html";
         }
     });
 });

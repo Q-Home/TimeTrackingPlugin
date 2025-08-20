@@ -1,9 +1,8 @@
-Flask==2.2.3
-python-dotenv==1.0.0
-Flask-Login==0.6.2
+Flask==2.3.3
 Flask-PyMongo==2.3.0
-Flask-CORS
-bcrypt==4.2.0
-flask-session==0.4.0
-werkzeug==2.2.3
-pymongo==4.1.1
+Flask-Login==0.6.3
+Flask-Session==0.5.0
+Flask-CORS==4.0.0
+bcrypt==4.0.1
+pymongo==4.5.0
+python-dotenv==1.0.0

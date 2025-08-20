@@ -6,7 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
     //     window.location.href = "dashboard.html";
     // }
 
-    const url = "http://173.212.225.50:8000";  // Basis-URL
+    const url = "http://173.212.225.50:5000";  // Basis-URL
 
     const form = document.querySelector(".new-user-info form");
     const submitButton = form.querySelector('button[type="submit"]');

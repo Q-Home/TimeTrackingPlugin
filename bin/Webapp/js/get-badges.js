@@ -3,26 +3,27 @@ let currentPage = 1;
 let badgeData = [];
 let filters = {};
 
-const url = process.env.URL || "http://127.0.0.1:5000";
+const url = "http://172.28.0.15:5000";
 
 async function fetchBadges(filterParams = {}) {
   try {
     showLoading();
 
-    // Build query string from filter parameters
-    const queryParams = new URLSearchParams();
+    // Verstuur filters via POST request body in plaats van URL parameters
+    const requestBody = {
+      filters: filterParams,
+      limit: 50, // Altijd de laatste 50 records
+      sort: { timestamp: -1 }, // Sorteer op timestamp, nieuwste eerst
+    };
 
-    if (filterParams.start_date) queryParams.append("start_date", filterParams.start_date);
-    if (filterParams.end_date) queryParams.append("end_date", filterParams.end_date);
-    if (filterParams.month) queryParams.append("month", filterParams.month);
-    if (filterParams.day) queryParams.append("day", filterParams.day);
-    if (filterParams.badge_code) queryParams.append("badge_code", filterParams.badge_code);
-    if (filterParams.user) queryParams.append("user", filterParams.user);
+    const response = await fetch(`${url}/api/v1/badges/search`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
 
-    const queryString = queryParams.toString();
-    const endpoint = queryString ? `${url}/api/v1/badges/?${queryString}` : `${url}/api/v1/badges/`;
-
-    const response = await fetch(endpoint);
     const data = await response.json();
 
     if (!response.ok) {
@@ -84,11 +85,11 @@ function renderBadges() {
 
     badgeTable += `
             <tr>
-                <td><strong><i class="ri-qr-code-line text-primary"></i> ${badge.badgecode || "N/A"}</strong></td>
-                <td><i class="ri-user-line text-info"></i> ${badge.user || "Unknown"}</td>
-                <td><i class="ri-time-line text-secondary"></i> ${formatDateTime(badge.scan_time)}</td>
+                <td><strong><i class="ri-qr-code-line text-primary"></i> ${badge.badgecode || badge.badge_code || "N/A"}</strong></td>
+                <td><i class="ri-user-line text-info"></i> ${badge.user || badge.username || "Unknown"}</td>
+                <td><i class="ri-time-line text-secondary"></i> ${formatDateTime(badge.scan_time || badge.timestamp)}</td>
                 <td><span class="${actionClass}"><i class="${actionIcon}"></i> ${badge.action || "N/A"}</span></td>
-                <td><i class="ri-calendar-line text-muted"></i> ${badge.timestamp || "N/A"}</td>
+                <td><i class="ri-calendar-line text-muted"></i> ${formatDateTime(badge.timestamp)}</td>
             </tr>
         `;
   }
@@ -100,7 +101,7 @@ function renderBadges() {
 
   badgeContainer.innerHTML = badgeTable;
 
-  // Update the pagination
+  // Update the pagination - aangepast voor max 50 records
   renderPagination();
 
   // Update record count
@@ -111,7 +112,7 @@ function renderPagination() {
   const paginationContainer = document.getElementById("pagination");
   paginationContainer.innerHTML = "";
 
-  // Calculate total pages
+  // Calculate total pages (max 50 records, dus max 1 pagina bij 50 per pagina)
   const totalPages = Math.ceil(badgeData.length / badgesPerPage);
 
   if (totalPages <= 1) {
@@ -167,7 +168,10 @@ function changePage(page) {
 
 function changeRecordsPerPage() {
   const select = document.getElementById("records-per-page");
-  badgesPerPage = parseInt(select.value);
+  const newLimit = parseInt(select.value);
+
+  // Update badgesPerPage voor display, maar haal altijd max 50 van server
+  badgesPerPage = Math.min(newLimit, 50);
   currentPage = 1; // Reset to first page
   renderBadges();
 }
@@ -201,7 +205,8 @@ function updateRecordCount() {
       recordCount.innerHTML = `
                 <span class="text-primary">
                     <i class="ri-file-list-line"></i> 
-                    Showing ${startIndex}-${endIndex} of ${badgeData.length} badge scans
+                    Showing ${startIndex}-${endIndex} of ${badgeData.length} latest badge scans
+                    ${Object.keys(filters).length > 0 ? "(filtered)" : ""}
                 </span>
             `;
     }
@@ -211,7 +216,7 @@ function updateRecordCount() {
 function updateFilterInfo() {
   const filterInfo = document.getElementById("filter-info");
   if (filterInfo) {
-    let filterText = "All badge scans";
+    let filterText = "Latest 50 badge scans";
     const activeFilters = [];
 
     if (filters.day) activeFilters.push(`<strong>Day:</strong> ${filters.day}`);
@@ -223,7 +228,7 @@ function updateFilterInfo() {
     if (filters.user) activeFilters.push(`<strong>Person:</strong> ${filters.user}`);
 
     if (activeFilters.length > 0) {
-      filterText = `<i class="ri-filter-line"></i> Filtered by: ${activeFilters.join(", ")}`;
+      filterText = `<i class="ri-filter-line"></i> Latest 50 filtered by: ${activeFilters.join(", ")}`;
       filterInfo.className = "alert alert-warning";
     } else {
       filterText = `<i class="ri-list-check-line"></i> ${filterText}`;
@@ -234,7 +239,7 @@ function updateFilterInfo() {
   }
 }
 
-// Filter functions
+// Filter functions - aangepast om laatste 50 met filter te tonen
 function applyDayFilter() {
   const day = document.getElementById("filter-day")?.value;
   if (day) {
@@ -271,12 +276,12 @@ function clearBadgeFilters() {
     if (element) element.value = "";
   });
 
-  // Fetch all badges without filters
+  // Fetch latest 50 badges zonder filters
   fetchBadges();
 }
 
 function refreshBadgeData() {
-  // Re-apply current filters
+  // Re-apply current filters for latest 50
   const currentFilters = {};
   const day = document.getElementById("filter-day")?.value;
   const month = document.getElementById("filter-month")?.value;
@@ -298,7 +303,7 @@ function showLoading() {
             <div class="spinner-border text-primary" role="status">
                 <span class="sr-only">Loading...</span>
             </div>
-            <p class="mt-2">Loading badge data...</p>
+            <p class="mt-2">Loading latest badge data...</p>
         </div>
     `;
 }
@@ -320,16 +325,16 @@ function clearError() {
   errorContainer.innerHTML = "";
 }
 
-// Auto-refresh function (optional)
+// Auto-refresh function (optional) - refresh laatste 50
 function startAutoRefresh(intervalSeconds = 30) {
   setInterval(() => {
     refreshBadgeData();
   }, intervalSeconds * 1000);
 }
 
-// Initialize on page load
+// Initialize on page load - laad laatste 50
 document.addEventListener("DOMContentLoaded", function () {
-  fetchBadges();
+  fetchBadges(); // Laadt automatisch de laatste 50
   // Optional: Start auto-refresh every 30 seconds
   // startAutoRefresh(30);
 });

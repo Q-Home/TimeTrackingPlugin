@@ -7,6 +7,7 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
     networks:
       timetracking_net:
         ipv4_address: 172.28.0.10
@@ -18,25 +19,28 @@ services:
     container_name: mqtt-listener
     depends_on:
       - mongodb
+    environment:
+      # MongoDB configuratie ZONDER authenticatie - alleen database naam
+      - MONGO_URI=mongodb://172.28.0.10:27017/timetracking
+      - MONGO_HOST=172.28.0.10
+      - MONGO_PORT=27017
+      - MONGO_DB_NAME=timetracking
+      - MONGO_COLLECTION_NAME=devices
+
+      # MQTT configuratie
+      - MQTT_BROKER=192.168.0.170
+      - MQTT_PORT=1883
+      - MQTT_TOPIC=miniserver/timetracking
+      - MQTT_STATS_TOPIC=miniserver/timetracking/getstats
+      - MQTT_PUB_TOPIC=loxberry/timetracking
+      - MQTT_USERNAME=loxberry
+      - MQTT_PASSWORD=loxberry
     volumes:
       - ./logs:/opt/loxberry/data/plugins/timetrackingplugin
     networks:
       timetracking_net:
         ipv4_address: 172.28.0.20
 
-  webapp:
-    build:
-      context: ./Webapp
-      dockerfile: Dockerfile
-    container_name: webapp
-    depends_on:
-      - mongodb
-    ports:
-      - "8080:80"
-    networks:
-      timetracking_net:
-        ipv4_address: 172.28.0.30
-  
   backend:
     build:
       context: ./backend
@@ -47,13 +51,32 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - MONGO_URI="mongodb://admin:adminpassword@172.28.0.10:27017"
-      - SECRET_KEY="dfhgfjllkjmlkjlkmjgfjhgkjljkljkfxde"
+      # MongoDB URI ZONDER authenticatie
+      - MONGO_URI=mongodb://172.28.0.10:27017/timetracking
+      - SECRET_KEY=your_super_secret_key_here
+      - FLASK_DEBUG=1
+      - DOCKER_ENV=true
     volumes:
       - ./logs:/app/logs
     networks:
       timetracking_net:
         ipv4_address: 172.28.0.15
+    restart: unless-stopped
+
+  webapp:
+    build:
+      context: ./Webapp
+      dockerfile: Dockerfile
+    container_name: webapp
+    depends_on:
+      - mongodb
+      - backend
+    ports:
+      - "8080:80"
+    networks:
+      timetracking_net:
+        ipv4_address: 172.28.0.30
+    restart: unless-stopped
 
 volumes:
   mongodb_data:
