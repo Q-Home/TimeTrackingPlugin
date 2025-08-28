@@ -7,8 +7,6 @@
    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
    <title>Badge List</title>
    <!-- Favicon -->
-   <link rel="icon" type="images/png" href="/favicon-96x96.png" sizes="96x96" />
-   <link rel="icon" type="images/svg+xml" href="/favicon.svg" />
    <link rel="shortcut icon" href="images//favicon.ico" />
    <link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon.png" />
    <link rel="manifest" href="images/site.webmanifest" />
@@ -46,24 +44,10 @@
          <div id="sidebar-scrollbar">
             <nav class="iq-sidebar-menu">
                <ul id="iq-sidebar-toggle" class="iq-menu">
-                  <li>
-                     <a href="#userinfo" class="iq-waves-effect" data-toggle="collapse" aria-expanded="false">
-                        <span class="ripple rippleEffect"></span>
-                        <i class="las la-user-tie iq-arrow-left"></i>
-                        <span>User</span>
-                        <i class="ri-arrow-right-s-line iq-arrow-right"></i>
-                     </a>
-                     <ul id="userinfo" class="iq-submenu collapse" data-parent="#iq-sidebar-toggle">
-                        <li><a href="add-user.html"><i class="las la-plus-circle"></i>User Add</a></li>
-                        <li><a href="user-list.html"><i class="las la-th-list"></i>User List</a></li>
-                     </ul>
-                  </li>
                   <li class="active active-menu">
                      <a href="badgelist.html"><i class="las la-id-card"></i><span>Badge Scans</span></a>
                   </li>
-                  <li>
-                     <a href="logs.html"><i class="las la-file-alt"></i><span>Logs</span></a>
-                  </li>
+
                </ul>
             </nav>
          </div>
@@ -156,8 +140,9 @@
                               <button type="button" class="btn btn-secondary btn-sm me-2" onclick="clearBadgeFilters()">
                                  <i class="ri-close-line"></i> Clear Filters
                               </button>
-                              <button type="button" class="btn btn-info btn-sm" onclick="exportData()">
-                                 <i class="ri-download-line"></i> Export
+                              <!-- In je badgelist.html, vervang de export knop met: -->
+                              <button type="button" class="btn btn-success btn-sm" onclick="exportToCSVWithFilters()">
+                                 <i class="ri-download-line"></i> Export CSV
                               </button>
                            </div>
                         </div>
@@ -177,9 +162,9 @@
                               <label for="records-per-page">Records per page:</label>
                               <select id="records-per-page" class="form-control d-inline-block w-auto" onchange="changeRecordsPerPage()">
                                  <option value="5">5</option>
-                                 <option value="10" selected>10</option>
+                                 <option value="10" >10</option>
                                  <option value="25">25</option>
-                                 <option value="50">50</option>
+                                 <option value="50" selected>50</option>
                               </select>
                            </div>
                         </div>
@@ -225,7 +210,7 @@
       </div>
    </footer>
    <!-- Footer END -->
-
+   <script src="js/standaard.js"></script>
    <!-- Optional JavaScript -->
    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
    <script src="js/jquery.min.js"></script>
@@ -283,7 +268,6 @@
    <!-- Badge Data JavaScript -->
    <script src="js/get-badges.js"></script>
    <script src="js/datahandler.js"></script>
-   <script src="js/standaard.js"></script>
 
 </body>
 

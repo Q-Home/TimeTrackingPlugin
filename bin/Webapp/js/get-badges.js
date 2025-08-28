@@ -381,24 +381,7 @@ function clearError() {
   }
 }
 
-// Auto-refresh function (optional) - refresh laatste 50
-function startAutoRefresh(intervalSeconds = 30) {
-  setInterval(() => {
-    refreshBadgeData();
-  }, intervalSeconds * 1000);
-}
-
-// Initialize on page load - laad laatste 50
-document.addEventListener("DOMContentLoaded", function () {
-  console.debug("Page loaded, starting badge fetch...");
-  console.debug("Environment detected - API URL:", url);
-
-  fetchBadges(); // Laadt automatisch de laatste 50
-  // Optional: Start auto-refresh every 30 seconds
-  // startAutoRefresh(30);
-});
-
-// Voeg deze functie toe na je andere functies
+// CSV Export functie
 function exportToCSV() {
   if (!badgeData || badgeData.length === 0) {
     alert("Geen data om te exporteren. Laad eerst badge data.");
@@ -457,28 +440,6 @@ function exportToCSV() {
   }
 }
 
-// Helper function to show export success message
-function showExportSuccess(message) {
-  const successContainer = document.getElementById("export-success") || document.getElementById("badge-error");
-  if (successContainer) {
-    successContainer.innerHTML = `
-      <div class="alert alert-success alert-dismissible fade show" role="alert">
-        <i class="ri-download-line"></i> ${message}
-        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-    `;
-
-    // Auto-hide after 3 seconds
-    setTimeout(() => {
-      if (successContainer) {
-        successContainer.innerHTML = "";
-      }
-    }, 3000);
-  }
-}
-
 // Enhanced export function with filter information
 function exportToCSVWithFilters() {
   if (!badgeData || badgeData.length === 0) {
@@ -499,6 +460,10 @@ function exportToCSVWithFilters() {
       Object.entries(filters).forEach(([key, value]) => {
         csvRows.push(`# ${key}: ${value}`);
       });
+      csvRows.push("# Export Date: " + new Date().toISOString());
+      csvRows.push(""); // Empty line
+    } else {
+      csvRows.push("# Badge Export - All Latest Records");
       csvRows.push("# Export Date: " + new Date().toISOString());
       csvRows.push(""); // Empty line
     }
@@ -547,3 +512,42 @@ function exportToCSVWithFilters() {
     alert("Error exporting CSV: " + error.message);
   }
 }
+
+// Helper function to show export success message
+function showExportSuccess(message) {
+  const successContainer = document.getElementById("export-success") || document.getElementById("badge-error");
+  if (successContainer) {
+    successContainer.innerHTML = `
+      <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="ri-download-line"></i> ${message}
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+    `;
+
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+      if (successContainer) {
+        successContainer.innerHTML = "";
+      }
+    }, 3000);
+  }
+}
+
+// Auto-refresh function (optional) - refresh laatste 50
+function startAutoRefresh(intervalSeconds = 30) {
+  setInterval(() => {
+    refreshBadgeData();
+  }, intervalSeconds * 1000);
+}
+
+// Initialize on page load - laad laatste 50
+document.addEventListener("DOMContentLoaded", function () {
+  console.debug("Page loaded, starting badge fetch...");
+  console.debug("Environment detected - API URL:", url);
+
+  fetchBadges(); // Laadt automatisch de laatste 50
+  // Optional: Start auto-refresh every 30 seconds
+  // startAutoRefresh(30);
+});
