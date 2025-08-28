@@ -901,8 +901,7 @@ def search_badges():
 
         data = request.get_json()
         filter_params = data.get('filters', {})
-        limit = data.get('limit', 50)  # Standaard laatste 50
-        # Standaard nieuwste eerst
+        limit = data.get('limit', 50)
         sort_params = data.get('sort', {'timestamp': -1})
 
         # Parse filter parameters
@@ -940,7 +939,7 @@ def search_badges():
 
             query['timestamp'] = date_query
 
-        # Month filtering (1-12)
+        # Month filtering
         if month:
             try:
                 month_int = int(month)
@@ -954,7 +953,7 @@ def search_badges():
             except ValueError:
                 return jsonify({'error': 'Invalid month format.'}), 400
 
-        # Day filtering (1-31)
+        # Day filtering
         if day:
             try:
                 day_int = int(day)
@@ -962,7 +961,6 @@ def search_badges():
                     if '$expr' not in query:
                         query['$expr'] = {}
                     if '$eq' in query['$expr']:
-                        # Combine with existing month filter
                         query['$expr'] = {
                             '$and': [
                                 query['$expr'],
@@ -980,8 +978,7 @@ def search_badges():
 
         # Badge code filtering
         if badge_code:
-            query['badge_code'] = {'$regex': badge_code,
-                                   '$options': 'i'}  # Case insensitive
+            query['badge_code'] = {'$regex': badge_code, '$options': 'i'}
             filters_applied['badge_code'] = badge_code
 
         # User filtering
@@ -1000,12 +997,24 @@ def search_badges():
 
         badge_list = []
         for badge in badges_cursor:
+            # GECORRIGEERD: Safe timestamp handling
+            timestamp_value = badge.get('timestamp')
+            if timestamp_value:
+                if isinstance(timestamp_value, datetime):
+                    timestamp_iso = timestamp_value.isoformat()
+                elif isinstance(timestamp_value, str):
+                    timestamp_iso = timestamp_value  # Already a string
+                else:
+                    timestamp_iso = str(timestamp_value)
+            else:
+                timestamp_iso = None
+
             badge_data = {
                 'id': str(badge['_id']),
                 'badgecode': badge.get('badge_code', ''),
                 'badge_code': badge.get('badge_code', ''),
-                'timestamp': badge.get('timestamp').isoformat() if badge.get('timestamp') else None,
-                'scan_time': badge.get('timestamp').isoformat() if badge.get('timestamp') else None,
+                'timestamp': timestamp_iso,
+                'scan_time': timestamp_iso,  # Alias for compatibility
                 'user': badge.get('username', ''),
                 'username': badge.get('username', ''),
                 'user_id': badge.get('user_id', ''),

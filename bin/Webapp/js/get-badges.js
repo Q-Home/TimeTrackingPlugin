@@ -2,19 +2,26 @@ let badgesPerPage = 50;
 let currentPage = 1;
 let badgeData = [];
 let filters = {};
+const currentHost = window.location.hostname;
+// Dynamische URL configuratie op basis van omgeving
 
-const url = "http://172.28.0.15:5000";
+const url = `http://${currentHost}:5000`;
+console.debug("Detected API URL:", url);
 
 async function fetchBadges(filterParams = {}) {
   try {
     showLoading();
 
-    // Verstuur filters via POST request body in plaats van URL parameters
     const requestBody = {
       filters: filterParams,
-      limit: 50, // Altijd de laatste 50 records
-      sort: { timestamp: -1 }, // Sorteer op timestamp, nieuwste eerst
+      limit: 50,
+      sort: { timestamp: -1 },
     };
+
+    console.debug("=== BADGE FETCH DEBUG ===");
+    console.debug("API URL:", url);
+    console.debug("Endpoint:", `${url}/api/v1/badges/search`);
+    console.debug("Request body:", JSON.stringify(requestBody, null, 2));
 
     const response = await fetch(`${url}/api/v1/badges/search`, {
       method: "POST",
@@ -24,14 +31,30 @@ async function fetchBadges(filterParams = {}) {
       body: JSON.stringify(requestBody),
     });
 
+    console.debug("Response status:", response.status);
+    console.debug("Response ok:", response.ok);
+    console.debug("Response headers:", Object.fromEntries(response.headers.entries()));
+
+    // Check if response is actually JSON
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const textResponse = await response.text();
+      console.error("Expected JSON but got:", contentType);
+      console.error("Response text:", textResponse);
+      throw new Error(`Server returned ${contentType} instead of JSON: ${textResponse.substring(0, 200)}`);
+    }
+
     const data = await response.json();
+    console.debug("Response data:", data);
 
     if (!response.ok) {
-      throw new Error(data.message || "Failed to fetch badge data");
+      throw new Error(data.message || data.error || `HTTP ${response.status}: ${response.statusText}`);
     }
 
     badgeData = data.badges || [];
     filters = data.filters_applied || {};
+
+    console.debug("Processed badge data:", badgeData.length, "badges");
 
     // Reset to first page when new data is loaded
     currentPage = 1;
@@ -39,8 +62,34 @@ async function fetchBadges(filterParams = {}) {
     updateFilterInfo();
     clearError();
   } catch (error) {
-    console.error("Error fetching badge data:", error);
+    console.error("=== FETCH ERROR ===");
+    console.error("Error type:", error.constructor.name);
+    console.error("Error message:", error.message);
+    console.error("API URL:", url);
+    console.error("Full error:", error);
+
     showError(`Error loading badge data: ${error.message}`);
+  }
+}
+
+// Test functie om de API te testen
+async function testAPI() {
+  console.log("=== API TEST ===");
+
+  // Test health endpoint
+  try {
+    const healthResponse = await fetch(`${url}/api/v1/health`);
+    console.log("Health check:", healthResponse.status, await healthResponse.text());
+  } catch (e) {
+    console.error("Health check failed:", e);
+  }
+
+  // Test GET badges endpoint
+  try {
+    const getResponse = await fetch(`${url}/api/v1/badges/`);
+    console.log("GET badges:", getResponse.status, await getResponse.text());
+  } catch (e) {
+    console.error("GET badges failed:", e);
   }
 }
 
@@ -64,10 +113,10 @@ function renderBadges() {
             <thead class="table-dark">
                 <tr>
                     <th><i class="ri-qr-code-line"></i> Badge Code</th>
-                    <th><i class="ri-user-line"></i> User</th>
-                    <th><i class="ri-time-line"></i> Scan Time</th>
-                    <th><i class="ri-play-circle-line"></i> Action</th>
                     <th><i class="ri-calendar-line"></i> Timestamp</th>
+                    <th><i class="ri-user-line"></i> Username</th>
+                    <th><i class="ri-play-circle-line"></i> Action</th>
+                    <th><i class="ri-device-line"></i> Device</th>
                 </tr>
             </thead>
             <tbody>
@@ -80,16 +129,19 @@ function renderBadges() {
   // Create table rows for the current page
   for (let i = startIndex; i < endIndex; i++) {
     const badge = badgeData[i];
-    const actionClass = badge.action === "START" ? "text-success" : badge.action === "STOP" ? "text-danger" : "text-info";
-    const actionIcon = badge.action === "START" ? "ri-play-circle-line" : badge.action === "STOP" ? "ri-stop-circle-line" : "ri-question-line";
+
+    // Determine action styling
+    const actionClass = badge.action === "START" ? "text-success" : badge.action === "STOP" ? "text-danger" : badge.action === "BREAK" ? "text-warning" : badge.action === "RETURN" ? "text-info" : "text-secondary";
+
+    const actionIcon = badge.action === "START" ? "ri-play-circle-line" : badge.action === "STOP" ? "ri-stop-circle-line" : badge.action === "BREAK" ? "ri-pause-circle-line" : badge.action === "RETURN" ? "ri-skip-back-line" : "ri-question-line";
 
     badgeTable += `
             <tr>
                 <td><strong><i class="ri-qr-code-line text-primary"></i> ${badge.badgecode || badge.badge_code || "N/A"}</strong></td>
-                <td><i class="ri-user-line text-info"></i> ${badge.user || badge.username || "Unknown"}</td>
-                <td><i class="ri-time-line text-secondary"></i> ${formatDateTime(badge.scan_time || badge.timestamp)}</td>
-                <td><span class="${actionClass}"><i class="${actionIcon}"></i> ${badge.action || "N/A"}</span></td>
                 <td><i class="ri-calendar-line text-muted"></i> ${formatDateTime(badge.timestamp)}</td>
+                <td><i class="ri-user-line text-info"></i> ${badge.username || badge.user || "Unknown"}</td>
+                <td><span class="${actionClass}"><i class="${actionIcon}"></i> ${badge.action || "N/A"}</span></td>
+                <td><i class="ri-device-line text-secondary"></i> ${badge.device_id || badge.device || "N/A"}</td>
             </tr>
         `;
   }
@@ -101,7 +153,7 @@ function renderBadges() {
 
   badgeContainer.innerHTML = badgeTable;
 
-  // Update the pagination - aangepast voor max 50 records
+  // Update the pagination
   renderPagination();
 
   // Update record count
@@ -310,7 +362,8 @@ function showLoading() {
 
 function showError(message) {
   const errorContainer = document.getElementById("badge-error");
-  errorContainer.innerHTML = `
+  if (errorContainer) {
+    errorContainer.innerHTML = `
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
             <i class="ri-error-warning-line"></i> ${message}
             <button type="button" class="close" data-dismiss="alert" aria-label="Close">
@@ -318,11 +371,14 @@ function showError(message) {
             </button>
         </div>
     `;
+  }
 }
 
 function clearError() {
   const errorContainer = document.getElementById("badge-error");
-  errorContainer.innerHTML = "";
+  if (errorContainer) {
+    errorContainer.innerHTML = "";
+  }
 }
 
 // Auto-refresh function (optional) - refresh laatste 50
@@ -334,7 +390,160 @@ function startAutoRefresh(intervalSeconds = 30) {
 
 // Initialize on page load - laad laatste 50
 document.addEventListener("DOMContentLoaded", function () {
+  console.debug("Page loaded, starting badge fetch...");
+  console.debug("Environment detected - API URL:", url);
+
   fetchBadges(); // Laadt automatisch de laatste 50
   // Optional: Start auto-refresh every 30 seconds
   // startAutoRefresh(30);
 });
+
+// Voeg deze functie toe na je andere functies
+function exportToCSV() {
+  if (!badgeData || badgeData.length === 0) {
+    alert("Geen data om te exporteren. Laad eerst badge data.");
+    return;
+  }
+
+  try {
+    // CSV headers
+    const headers = ["Badge Code", "Timestamp", "Username", "Action", "Device"];
+
+    // Convert badge data to CSV format
+    const csvRows = [];
+
+    // Add headers
+    csvRows.push(headers.join(","));
+
+    // Add data rows
+    badgeData.forEach((badge) => {
+      const row = [`"${badge.badgecode || badge.badge_code || "N/A"}"`, `"${formatDateTime(badge.timestamp)}"`, `"${badge.username || badge.user || "Unknown"}"`, `"${badge.action || "N/A"}"`, `"${badge.device_id || badge.device || "N/A"}"`];
+      csvRows.push(row.join(","));
+    });
+
+    // Create CSV content
+    const csvContent = csvRows.join("\n");
+
+    // Create filename with current date/time
+    const now = new Date();
+    const timestamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const filename = `badge-export-${timestamp}.csv`;
+
+    // Create and trigger download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+
+    if (link.download !== undefined) {
+      // Feature detection for download attribute
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      console.log(`CSV exported: ${filename} with ${badgeData.length} records`);
+
+      // Show success message
+      showExportSuccess(`Exported ${badgeData.length} records to ${filename}`);
+    } else {
+      // Fallback for older browsers
+      alert("CSV export not supported in this browser");
+    }
+  } catch (error) {
+    console.error("Error exporting CSV:", error);
+    alert("Error exporting CSV: " + error.message);
+  }
+}
+
+// Helper function to show export success message
+function showExportSuccess(message) {
+  const successContainer = document.getElementById("export-success") || document.getElementById("badge-error");
+  if (successContainer) {
+    successContainer.innerHTML = `
+      <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="ri-download-line"></i> ${message}
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+    `;
+
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+      if (successContainer) {
+        successContainer.innerHTML = "";
+      }
+    }, 3000);
+  }
+}
+
+// Enhanced export function with filter information
+function exportToCSVWithFilters() {
+  if (!badgeData || badgeData.length === 0) {
+    alert("Geen data om te exporteren. Laad eerst badge data.");
+    return;
+  }
+
+  try {
+    // CSV headers
+    const headers = ["Badge Code", "Timestamp", "Username", "Action", "Device"];
+
+    // Convert badge data to CSV format
+    const csvRows = [];
+
+    // Add filter info as comments if filters are applied
+    if (Object.keys(filters).length > 0) {
+      csvRows.push("# Badge Export with Filters Applied");
+      Object.entries(filters).forEach(([key, value]) => {
+        csvRows.push(`# ${key}: ${value}`);
+      });
+      csvRows.push("# Export Date: " + new Date().toISOString());
+      csvRows.push(""); // Empty line
+    }
+
+    // Add headers
+    csvRows.push(headers.join(","));
+
+    // Add data rows
+    badgeData.forEach((badge) => {
+      const row = [`"${badge.badgecode || badge.badge_code || "N/A"}"`, `"${formatDateTime(badge.timestamp)}"`, `"${badge.username || badge.user || "Unknown"}"`, `"${badge.action || "N/A"}"`, `"${badge.device_id || badge.device || "N/A"}"`];
+      csvRows.push(row.join(","));
+    });
+
+    // Create CSV content
+    const csvContent = csvRows.join("\n");
+
+    // Create filename with current date/time and filter info
+    const now = new Date();
+    const timestamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const filterSuffix = Object.keys(filters).length > 0 ? "-filtered" : "";
+    const filename = `badge-export${filterSuffix}-${timestamp}.csv`;
+
+    // Create and trigger download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      console.log(`CSV exported: ${filename} with ${badgeData.length} records`);
+
+      // Show success message
+      const filterInfo = Object.keys(filters).length > 0 ? " (filtered data)" : "";
+      showExportSuccess(`Exported ${badgeData.length} records${filterInfo} to ${filename}`);
+    } else {
+      alert("CSV export not supported in this browser");
+    }
+  } catch (error) {
+    console.error("Error exporting CSV:", error);
+    alert("Error exporting CSV: " + error.message);
+  }
+}

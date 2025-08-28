@@ -28,7 +28,7 @@ services:
       - MONGO_COLLECTION_NAME=devices
 
       # MQTT configuratie
-      - MQTT_BROKER=192.168.0.170
+      - MQTT_BROKER=192.168.0.196
       - MQTT_PORT=1883
       - MQTT_TOPIC=miniserver/timetracking
       - MQTT_STATS_TOPIC=miniserver/timetracking/getstats
@@ -68,6 +68,9 @@ services:
       context: ./Webapp
       dockerfile: Dockerfile
     container_name: webapp
+    environment:
+      # MongoDB URI ZONDER authenticatie
+      - URI=http://192.168.0.196:5000
     depends_on:
       - mongodb
       - backend
