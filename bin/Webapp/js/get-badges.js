@@ -291,61 +291,131 @@ function updateFilterInfo() {
   }
 }
 
-// Filter functions - aangepast om laatste 50 met filter te tonen
+// Verbeterde filter functions - aangepast om laatste 50 met filter te tonen
 function applyDayFilter() {
-  const day = document.getElementById("filter-day")?.value;
-  if (day) {
-    fetchBadges({ day: day });
+  const dayInput = document.getElementById("filter-day")?.value;
+  if (dayInput) {
+    // Extract day number from date string (YYYY-MM-DD -> DD)
+    let dayNumber;
+
+    if (dayInput.includes("-")) {
+      // Date format: "2024-08-21" -> extract day "21"
+      const dateParts = dayInput.split("-");
+      dayNumber = parseInt(dateParts[2], 10);
+    } else {
+      // Direct number input
+      dayNumber = parseInt(dayInput, 10);
+    }
+
+    if (dayNumber >= 1 && dayNumber <= 31) {
+      console.debug("Applying day filter:", dayNumber);
+      fetchBadges({ day: dayNumber });
+    } else {
+      alert("Ongeldige dag. Gebruik een getal tussen 1 en 31.");
+    }
   }
 }
 
 function applyMonthFilter() {
-  const month = document.getElementById("filter-month")?.value;
-  if (month) {
-    fetchBadges({ month: month });
+  const monthInput = document.getElementById("filter-month")?.value;
+  if (monthInput) {
+    // Extract month number from month string (YYYY-MM -> MM)
+    let monthNumber;
+
+    if (monthInput.includes("-")) {
+      // Month format: "2024-08" -> extract month "08"
+      const dateParts = monthInput.split("-");
+      monthNumber = parseInt(dateParts[1], 10);
+    } else {
+      // Direct number input
+      monthNumber = parseInt(monthInput, 10);
+    }
+
+    if (monthNumber >= 1 && monthNumber <= 12) {
+      console.debug("Applying month filter:", monthNumber);
+      fetchBadges({ month: monthNumber });
+    } else {
+      alert("Ongeldige maand. Gebruik een getal tussen 1 en 12.");
+    }
   }
 }
 
+// Vervang ook je andere filter functies voor consistentie
 function applyBadgeFilter() {
   const badgeCode = document.getElementById("filter-badge")?.value;
-  if (badgeCode) {
-    fetchBadges({ badge_code: badgeCode });
+  if (badgeCode && badgeCode.trim()) {
+    console.debug("Applying badge filter:", badgeCode);
+    fetchBadges({ badge_code: badgeCode.trim() });
+  } else {
+    // Als leeg, clear de filter
+    fetchBadges();
   }
 }
 
 function applyUserFilter() {
   const user = document.getElementById("filter-user")?.value;
-  if (user) {
-    fetchBadges({ user: user });
+  if (user && user.trim()) {
+    console.debug("Applying user filter:", user);
+    fetchBadges({ user: user.trim() });
+  } else {
+    // Als leeg, clear de filter
+    fetchBadges();
   }
 }
 
-function clearBadgeFilters() {
-  // Clear all filter inputs
-  const inputs = ["filter-day", "filter-month", "filter-badge", "filter-user"];
-  inputs.forEach((id) => {
-    const element = document.getElementById(id);
-    if (element) element.value = "";
-  });
+// Verbeterde combined filter functie
+function applyCombinedFilters() {
+  const currentFilters = {};
 
-  // Fetch latest 50 badges zonder filters
-  fetchBadges();
+  // Day filter
+  const dayInput = document.getElementById("filter-day")?.value;
+  if (dayInput) {
+    let dayNumber;
+    if (dayInput.includes("-")) {
+      const dateParts = dayInput.split("-");
+      dayNumber = parseInt(dateParts[2], 10);
+    } else {
+      dayNumber = parseInt(dayInput, 10);
+    }
+    if (dayNumber >= 1 && dayNumber <= 31) {
+      currentFilters.day = dayNumber;
+    }
+  }
+
+  // Month filter
+  const monthInput = document.getElementById("filter-month")?.value;
+  if (monthInput) {
+    let monthNumber;
+    if (monthInput.includes("-")) {
+      const dateParts = monthInput.split("-");
+      monthNumber = parseInt(dateParts[1], 10);
+    } else {
+      monthNumber = parseInt(monthInput, 10);
+    }
+    if (monthNumber >= 1 && monthNumber <= 12) {
+      currentFilters.month = monthNumber;
+    }
+  }
+
+  // Badge filter
+  const badgeCode = document.getElementById("filter-badge")?.value;
+  if (badgeCode && badgeCode.trim()) {
+    currentFilters.badge_code = badgeCode.trim();
+  }
+
+  // User filter
+  const user = document.getElementById("filter-user")?.value;
+  if (user && user.trim()) {
+    currentFilters.user = user.trim();
+  }
+
+  console.debug("Applying combined filters:", currentFilters);
+  fetchBadges(currentFilters);
 }
 
 function refreshBadgeData() {
-  // Re-apply current filters for latest 50
-  const currentFilters = {};
-  const day = document.getElementById("filter-day")?.value;
-  const month = document.getElementById("filter-month")?.value;
-  const badgeCode = document.getElementById("filter-badge")?.value;
-  const user = document.getElementById("filter-user")?.value;
-
-  if (day) currentFilters.day = day;
-  if (month) currentFilters.month = month;
-  if (badgeCode) currentFilters.badge_code = badgeCode;
-  if (user) currentFilters.user = user;
-
-  fetchBadges(currentFilters);
+  // Re-apply current filters for latest 50 using combined filter approach
+  applyCombinedFilters();
 }
 
 function showLoading() {

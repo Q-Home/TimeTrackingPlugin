@@ -47,7 +47,9 @@
                   <li class="active active-menu">
                      <a href="badgelist.html"><i class="las la-id-card"></i><span>Badge Scans</span></a>
                   </li>
-
+                  <li>
+                     <a href="user-list.html"><i class="las la-clock"></i><span>Timesheet</span></a>
+                  </li>
                </ul>
             </nav>
          </div>
@@ -121,28 +123,33 @@
                         <!-- Filter Controls -->
                         <div class="row mb-3">
                            <div class="col-md-2">
-                              <label for="filter-day">Filter by Day:</label>
-                              <input type="date" class="form-control" id="filter-day" onchange="applyDayFilter()">
+                              <label for="filter-day" class="form-label">Filter by Day:</label>
+                              <input type="date" class="form-control form-control-sm" id="filter-day" onchange="applyDayFilter()" title="Select a specific date">
                            </div>
                            <div class="col-md-2">
-                              <label for="filter-month">Filter by Month:</label>
-                              <input type="month" class="form-control" id="filter-month" onchange="applyMonthFilter()">
+                              <label for="filter-month" class="form-label">Filter by Month:</label>
+                              <input type="month" class="form-control form-control-sm" id="filter-month" onchange="applyMonthFilter()" title="Select a specific month">
                            </div>
                            <div class="col-md-2">
-                              <label for="filter-badge">Filter by Badge:</label>
-                              <input type="text" class="form-control" id="filter-badge" placeholder="Badge Code" onchange="applyBadgeFilter()">
+                              <label for="filter-badge" class="form-label">Filter by Badge:</label>
+                              <input type="text" class="form-control form-control-sm" id="filter-badge" placeholder="Badge Code" onchange="applyBadgeFilter()" maxlength="20" title="Enter badge code to filter">
                            </div>
                            <div class="col-md-3">
-                              <label for="filter-user">Filter by Person:</label>
-                              <input type="text" class="form-control" id="filter-user" placeholder="Person Name" onchange="applyUserFilter()">
+                              <label for="filter-user" class="form-label">Filter by Person:</label>
+                              <input type="text" class="form-control form-control-sm" id="filter-user" placeholder="Person Name" onchange="applyUserFilter()" maxlength="50" title="Enter person name to filter">
                            </div>
-                           <div class="col-md-3 d-flex align-items-end">
-                              <button type="button" class="btn btn-secondary btn-sm me-2" onclick="clearBadgeFilters()">
-                                 <i class="ri-close-line"></i> Clear Filters
+                           <div class="col-md-3 d-flex align-items-end gap-2">
+                              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearBadgeFilters()" title="Clear all filters">
+                                 <i class="ri-close-line"></i> Clear
                               </button>
-                              <!-- In je badgelist.html, vervang de export knop met: -->
-                              <button type="button" class="btn btn-success btn-sm" onclick="exportToCSVWithFilters()">
+                              <button type="button" class="btn btn-primary btn-sm" onclick="applyCombinedFilters()" title="Apply all current filters">
+                                 <i class="ri-search-line"></i> Search
+                              </button>
+                              <button type="button" class="btn btn-success btn-sm" onclick="exportToCSVWithFilters()" title="Export current data as CSV">
                                  <i class="ri-download-line"></i> Export CSV
+                              </button>
+                              <button type="button" class="btn btn-outline-primary btn-sm" onclick="refreshBadgeData()" title="Refresh data">
+                                 <i class="ri-refresh-line"></i> Refresh
                               </button>
                            </div>
                         </div>
@@ -162,7 +169,7 @@
                               <label for="records-per-page">Records per page:</label>
                               <select id="records-per-page" class="form-control d-inline-block w-auto" onchange="changeRecordsPerPage()">
                                  <option value="5">5</option>
-                                 <option value="10" >10</option>
+                                 <option value="10">10</option>
                                  <option value="25">25</option>
                                  <option value="50" selected>50</option>
                               </select>

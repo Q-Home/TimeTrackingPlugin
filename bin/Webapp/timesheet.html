@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Security headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+
+    <title>User Timesheet - Time Tracking System</title>
+
+    <!-- Favicon -->
+    <link rel="shortcut icon" href="images/favicon.ico" />
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <!-- Typography CSS -->
+    <link rel="stylesheet" href="css/typography.css">
+    <!-- Style CSS -->
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Responsive CSS -->
+    <link rel="stylesheet" href="css/responsive.css">
+
+    <!-- Chart.js for charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <!-- loader Start -->
+    <div id="loading">
+        <div id="loading-center"></div>
+    </div>
+    <!-- loader END -->
+
+    <!-- Wrapper Start -->
+    <div class="wrapper">
+        <!-- Sidebar -->
+        <div class="iq-sidebar">
+            <div class="iq-sidebar-logo d-flex justify-content-between">
+                <a href="dashboard.html" class="header-logo">
+                    <img src="images/logo.png" class="img-fluid rounded-circle" alt="Logo">
+                    <div class="logo-title">
+                    </div>
+                </a>
+            </div>
+            <div id="sidebar-scrollbar">
+                <nav class="iq-sidebar-menu">
+                    <ul id="iq-sidebar-toggle" class="iq-menu">
+                        <li>
+                            <a href="badgelist.html"><i class="las la-id-card"></i><span>Badge Scans</span></a>
+                        </li>
+                        <li class="active active-menu">
+                            <a href="user-list.html"><i class="las la-clock"></i><span>Timesheet</span></a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+
+        <!-- TOP Nav Bar -->
+        <div class="iq-top-navbar">
+            <div class="iq-navbar-custom">
+                <nav class="navbar navbar-expand-lg navbar-light p-0">
+                    <div class="navbar-breadcrumb">
+                        <div class="d-flex align-items-center">
+                            <a href="user-list.html" class="btn btn-sm btn-outline-secondary mr-3">
+                                <i class="las la-arrow-left"></i> Back to Users
+                            </a>
+                            <div>
+                                <h4 class="mb-0 text-dark">User Timesheet</h4>
+                                <p class="mb-0"><span class="text-primary">Time Tracking,</span> View user hours and
+                                    statistics</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                        <ul class="navbar-nav ml-auto navbar-list">
+                        </ul>
+                    </div>
+                    <ul class="navbar-list">
+                        <li class="line-height">
+                            <a href="#" class="search-toggle iq-waves-effect d-flex align-items-center">
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Content Page start -->
+        <div id="content-page" class="content-page">
+            <div class="container-fluid">
+                <!-- User Info Header -->
+                <div class="row mb-4">
+                    <div class="col-lg-12">
+                        <div class="iq-card">
+                            <div class="iq-card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-lg mr-3">
+                                                <div class="avatar-title bg-primary rounded-circle">
+                                                    <i class="las la-user text-white" style="font-size: 2rem;"></i>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <h3 class="mb-1" id="user-name">Loading...</h3>
+                                                <p class="mb-0 text-muted">Employee ID: <span id="user-id">-</span></p>
+                                                <p class="mb-0 text-muted">Last Updated: <span id="last-updated">-</span></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 text-right">
+                                        <button class="btn btn-outline-primary btn-sm" onclick="refreshData()">
+                                            <i class="las la-sync"></i> Refresh Data
+                                        </button>
+                                        <button class="btn btn-success btn-sm" onclick="exportTimesheet()">
+                                            <i class="las la-download"></i> Export
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Period Selector -->
+                <div class="row mb-4">
+                    <div class="col-lg-12">
+                        <div class="iq-card">
+                            <div class="iq-card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-6">
+                                        <h5 class="card-title mb-0">Time Period</h5>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="btn-group float-right" role="group">
+                                            <button type="button" class="btn btn-outline-primary active" id="btn-week" onclick="setPeriod('week')">
+                                                Last Week
+                                            </button>
+                                            <button type="button" class="btn btn-outline-primary" id="btn-month" onclick="setPeriod('month')">
+                                                Last Month
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistics Cards -->
+                <div class="row mb-4">
+                    <div class="col-lg-3 col-md-6">
+                        <div class="iq-card">
+                            <div class="iq-card-body">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <span class="text-muted">Total Hours</span>
+                                        <h4 class="mb-0" id="total-hours">0.0h</h4>
+                                    </div>
+                                    <div class="icon iq-icon-box-2 bg-primary">
+                                        <i class="las la-clock text-white"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6">
+                        <div class="iq-card">
+                            <div class="iq-card-body">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <span class="text-muted">Working Days</span>
+                                        <h4 class="mb-0" id="working-days">0</h4>
+                                    </div>
+                                    <div class="icon iq-icon-box-2 bg-success">
+                                        <i class="las la-calendar text-white"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6">
+                        <div class="iq-card">
+                            <div class="iq-card-body">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <span class="text-muted">Avg Hours/Day</span>
+                                        <h4 class="mb-0" id="avg-hours">0.0h</h4>
+                                    </div>
+                                    <div class="icon iq-icon-box-2 bg-warning">
+                                        <i class="las la-chart-bar text-white"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6">
+                        <div class="iq-card">
+                            <div class="iq-card-body">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <span class="text-muted">Break Time</span>
+                                        <h4 class="mb-0" id="break-time">0.0h</h4>
+                                    </div>
+                                    <div class="icon iq-icon-box-2 bg-info">
+                                        <i class="las la-pause text-white"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="row mb-4">
+                    <!-- Daily Hours Chart -->
+                    <div class="col-lg-8">
+                        <div class="iq-card">
+                            <div class="iq-card-header d-flex justify-content-between">
+                                <div class="iq-header-title">
+                                    <h4 class="card-title">Daily Hours</h4>
+                                </div>
+                            </div>
+                            <div class="iq-card-body">
+                                <canvas id="dailyHoursChart" height="100"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hours Breakdown Pie Chart -->
+                    <div class="col-lg-4">
+                        <div class="iq-card">
+                            <div class="iq-card-header d-flex justify-content-between">
+                                <div class="iq-header-title">
+                                    <h4 class="card-title">Hours Breakdown</h4>
+                                </div>
+                            </div>
+                            <div class="iq-card-body">
+                                <canvas id="hoursBreakdownChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detailed Time Log Table -->
+                <div class="row">
+                    <div class="col-lg-12">
+                        <div class="iq-card">
+                            <div class="iq-card-header d-flex justify-content-between">
+                                <div class="iq-header-title">
+                                    <h4 class="card-title">Detailed Time Log</h4>
+                                </div>
+                                <div>
+                                    <button class="btn btn-primary btn-sm" onclick="exportDetailedLog()">
+                                        <i class="las la-file-export"></i> Export Details
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="iq-card-body">
+                                <!-- Loading State -->
+                                <div id="table-loading" class="text-center p-4">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="sr-only">Loading...</span>
+                                    </div>
+                                    <p class="mt-2">Loading timesheet data...</p>
+                                </div>
+
+                                <!-- Error State -->
+                                <div id="table-error" class="d-none">
+                                </div>
+
+                                <!-- Data Table -->
+                                <div id="timesheet-table" class="table-responsive d-none">
+                                    <table class="table table-striped table-hover">
+                                        <thead class="table-dark">
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Clock In</th>
+                                                <th>Clock Out</th>
+                                                <th>Break Time</th>
+                                                <th>Total Hours</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="timesheet-tbody">
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- No Data State -->
+                                <div id="no-data" class="text-center p-4 d-none">
+                                    <i class="las la-clock" style="font-size: 3rem; color: #ccc;"></i>
+                                    <h5 class="mt-2">No timesheet data found</h5>
+                                    <p class="text-muted">No badge scans found for this user in the selected period.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success/Error Messages -->
+    <div id="message-container"></div>
+
+    <!-- JavaScript -->
+    <script src="js/jquery.min.js"></script>
+    <script src="js/popper.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/custom.js"></script>
+    <script src="js/timesheet.js"></script>
+</body>
+
+</html>

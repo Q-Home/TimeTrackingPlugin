@@ -268,21 +268,63 @@ def get_users():
         if not mongo:
             return jsonify({'error': 'Database not connected'}), 500
 
-        # GECORRIGEERD: Gebruik mongo.db in plaats van mongo.cx
-        users = mongo.db['users'].find()
-        user_list = []
-        for user in users:
-            user_list.append({
+        # Aggregation pipeline to get unique users from badge_logs
+        pipeline = [
+            {
+                '$group': {
+                    '_id': '$username',
+                    'username': {'$first': '$username'},
+                    'user_id': {'$first': '$user_id'},
+                    'first_name': {'$first': '$first_name'},
+                    'last_name': {'$first': '$last_name'},
+                    'badge_codes': {'$addToSet': '$badge_code'},
+                    'total_scans': {'$sum': 1},
+                    'last_activity': {'$max': '$timestamp'},
+                    'first_activity': {'$min': '$timestamp'}
+                }
+            },
+            {
+                '$sort': {'last_activity': -1}
+            }
+        ]
+
+        users_cursor = mongo.db['badge_logs'].aggregate(pipeline)
+
+        users_list = []
+        for user in users_cursor:
+            # Safe timestamp handling
+            last_activity = user.get('last_activity')
+            first_activity = user.get('first_activity')
+
+            if isinstance(last_activity, datetime):
+                last_activity_iso = last_activity.isoformat()
+            else:
+                last_activity_iso = last_activity
+
+            if isinstance(first_activity, datetime):
+                first_activity_iso = first_activity.isoformat()
+            else:
+                first_activity_iso = first_activity
+
+            user_data = {
+                'username': user.get('username', ''),
+                'user_id': user.get('user_id', ''),
                 'first_name': user.get('first_name', ''),
                 'last_name': user.get('last_name', ''),
-                'company_name': user.get('company_name', ''),
-                'user_role': user.get('role', 'user'),
-                'username': user.get('username', ''),
-                'email': user.get('email', ''),
-                "blocked": user.get('blocked', False)
-            })
+                'badge_codes': user.get('badge_codes', []),
+                'total_scans': user.get('total_scans', 0),
+                'last_activity': last_activity_iso,
+                'first_activity': first_activity_iso
+            }
+            users_list.append(user_data)
 
-        return jsonify(users=user_list), 200
+        response = {
+            'users': users_list,
+            'total_users': len(users_list)
+        }
+
+        return jsonify(response), 200
+
     except Exception as e:
         log_error(f"Error retrieving users: {e}")
         return jsonify({'error': str(e)}), 500
