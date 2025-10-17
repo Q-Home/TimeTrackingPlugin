@@ -259,7 +259,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Fetch users from backend - CORRECTE URL
 writeDebugLog("Fetching users from backend");
-$usersResponse = makeAPIRequest($backend_url . '/users/', 'GET');  // LET OP: één slash
+$usersResponse = makeAPIRequest($backend_url . '/loginusers/', 'GET');  // LET OP: één slash
 $users = $usersResponse['success'] ? ($usersResponse['data']['users'] ?? []) : [];
 
 if (!$usersResponse['success']) {

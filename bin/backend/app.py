@@ -210,7 +210,24 @@ class User(UserMixin):
 
 # GECORRIGEERD: Flask-Login user loader
 
+def to_belgian_time(dt):
+    """Convert UTC datetime to Belgian local time (Europe/Brussels)."""
+    if not dt:
+        return None
+    if isinstance(dt, str):
+        try:
+            dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
+        except Exception:
+            return dt  # Laat string ongemoeid als parsing mislukt
+    if not isinstance(dt, datetime):
+        return dt
 
+    utc = pytz.utc
+    belgium_tz = pytz.timezone('Europe/Brussels')
+    dt_utc = dt.replace(tzinfo=utc) if dt.tzinfo is None else dt.astimezone(utc)
+    local_dt = dt_utc.astimezone(belgium_tz)
+    return local_dt
+    
 @login_manager.user_loader
 def load_user(user_id):
     try:

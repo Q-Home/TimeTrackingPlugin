@@ -230,17 +230,10 @@ function changeRecordsPerPage() {
 
 function formatDateTime(dateTimeString) {
   if (!dateTimeString) return "N/A";
-
   try {
-    const date = new Date(dateTimeString);
-    return date.toLocaleString("nl-NL", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
+    const d = new Date(dateTimeString);
+    // Simple local formatting (browser locale)
+    return d.toLocaleString();
   } catch (error) {
     return dateTimeString;
   }
