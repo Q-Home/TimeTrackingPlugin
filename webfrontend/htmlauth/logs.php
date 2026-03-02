@@ -20,7 +20,7 @@ LBWeb::lbheader($template_title, $helplink, $helptemplate);
 
 // Log file locations
 $docker_log = '/opt/loxberry/log/plugins/timetrackingplugin/docker.log';
-$mqtt_log = '/opt/loxberry/data/plugins/timetracking-plugin/timetracking_mqtt.log';
+$mqtt_log = '/opt/loxberry/log/plugins/timetrackingplugin/timetracking_mqtt.log';
 $app_log = '/opt/loxberry/log/plugins/timetrackingplugin/app.log';
 
 // Handle log actions

@@ -8,7 +8,7 @@ import paho.mqtt.client as mqtt
 from zoneinfo import ZoneInfo  # ✅ ingebouwde tijdzone-ondersteuning sinds Python 3.9
 
 # ---------------- Configuration ----------------
-DB_FOLDER = "/opt/loxberry/data/plugins/timetrackingplugin"
+DB_FOLDER = "/opt/loxberry/log/plugins/timetrackingplugin"
 DB_NAME = os.getenv("MONGO_DB_NAME", "timetracking")
 COLLECTION_NAME = os.getenv("MONGO_COLLECTION_NAME", "entrees")
 LOGFILE = os.path.join(DB_FOLDER, "timetracking_mqtt.log")
