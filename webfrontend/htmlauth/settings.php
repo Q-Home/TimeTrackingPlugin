@@ -23,9 +23,33 @@ $settings_file = '/opt/loxberry/data/plugins/timetrackingplugin/settings.json';
 $docker_compose_file = '/opt/loxberry/bin/plugins/timetrackingplugin/docker-compose.yml';
 $run_script = '/opt/loxberry/bin/plugins/timetrackingplugin/run_docker_compose.sh';
 $log_file = '/opt/loxberry/log/plugins/timetrackingplugin/docker.log';
+$app_log_file = '/opt/loxberry/log/plugins/timetrackingplugin/app.log';
+$mqtt_log_file = '/opt/loxberry/log/plugins/timetrackingplugin/timetracking_mqtt.log';
 
-// Logging function
+// App logging function - for settings and general app events
 function writeToLog($message, $type = 'INFO') {
+    global $app_log_file;
+    $timestamp = date('Y-m-d H:i:s');
+    $logEntry = "[$timestamp] [$type] $message" . PHP_EOL;
+    
+    // Ensure log directory exists
+    $log_dir = dirname($app_log_file);
+    if (!is_dir($log_dir)) {
+        @mkdir($log_dir, 0777, true);
+        @chmod($log_dir, 0777);
+    }
+    
+    // Create file if it doesn't exist
+    if (!file_exists($app_log_file)) {
+        @touch($app_log_file);
+        @chmod($app_log_file, 0666);
+    }
+    
+    @file_put_contents($app_log_file, $logEntry, FILE_APPEND | LOCK_EX);
+}
+
+// Docker logging function - for docker commands and output
+function writeToDockerLog($message, $type = 'INFO') {
     global $log_file;
     $timestamp = date('Y-m-d H:i:s');
     $logEntry = "[$timestamp] [$type] $message" . PHP_EOL;
@@ -33,10 +57,39 @@ function writeToLog($message, $type = 'INFO') {
     // Ensure log directory exists
     $log_dir = dirname($log_file);
     if (!is_dir($log_dir)) {
-        mkdir($log_dir, 0755, true);
+        @mkdir($log_dir, 0777, true);
+        @chmod($log_dir, 0777);
     }
     
-    file_put_contents($log_file, $logEntry, FILE_APPEND | LOCK_EX);
+    // Create file if it doesn't exist
+    if (!file_exists($log_file)) {
+        @touch($log_file);
+        @chmod($log_file, 0666);
+    }
+    
+    @file_put_contents($log_file, $logEntry, FILE_APPEND | LOCK_EX);
+}
+
+// MQTT logging function - for MQTT service events
+function writeToMQTTLog($message, $type = 'INFO') {
+    global $mqtt_log_file;
+    $timestamp = date('Y-m-d H:i:s');
+    $logEntry = "[$timestamp] [$type] $message" . PHP_EOL;
+    
+    // Ensure log directory exists
+    $log_dir = dirname($mqtt_log_file);
+    if (!is_dir($log_dir)) {
+        @mkdir($log_dir, 0777, true);
+        @chmod($log_dir, 0777);
+    }
+    
+    // Create file if it doesn't exist
+    if (!file_exists($mqtt_log_file)) {
+        @touch($mqtt_log_file);
+        @chmod($mqtt_log_file, 0666);
+    }
+    
+    @file_put_contents($mqtt_log_file, $logEntry, FILE_APPEND | LOCK_EX);
 }
 
 // Load files
@@ -70,25 +123,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Start Docker Compose
     if (isset($_POST['start_docker'])) {
-        writeToLog("Docker Compose start requested by user", "INFO");
+        writeToDockerLog("Docker Compose start requested by user", "INFO");
         $docker_compose_path = '/opt/loxberry/bin/plugins/timetrackingplugin';
         
         if (file_exists($run_script)) {
             chmod($run_script, 0755);
-            $cmd = "cd " . escapeshellarg($docker_compose_path) . " && bash run_docker_compose.sh 2>&1";
-            writeToLog("Executing custom run script: $cmd", "INFO");
+            $cmd = "cd " . escapeshellarg($docker_compose_path) . " && sudo bash run_docker_compose.sh 2>&1";
+            writeToDockerLog("Executing custom run script: $cmd", "INFO");
         } else {
-            $cmd = "cd " . escapeshellarg($docker_compose_path) . " && docker compose up -d 2>&1";
-            writeToLog("Executing docker compose up: $cmd", "INFO");
+            $cmd = "cd " . escapeshellarg($docker_compose_path) . " && sudo docker compose up -d 2>&1";
+            writeToDockerLog("Executing docker compose up: $cmd", "INFO");
         }
         
         $output = shell_exec($cmd);
-        writeToLog("Docker start command output: " . trim($output), "DOCKER");
+        writeToDockerLog("Docker start command output: " . trim($output), "DOCKER");
         
         if (strpos($output, 'error') !== false || strpos($output, 'Error') !== false) {
-            writeToLog("Docker start encountered errors", "ERROR");
+            writeToDockerLog("Docker start encountered errors", "ERROR");
         } else {
-            writeToLog("Docker containers started successfully", "SUCCESS");
+            writeToDockerLog("Docker containers started successfully", "SUCCESS");
         }
         
         echo '<div class="alert alert-success">
@@ -100,18 +153,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Stop Docker Compose
     if (isset($_POST['stop_docker'])) {
-        writeToLog("Docker Compose stop requested by user", "INFO");
+        writeToDockerLog("Docker Compose stop requested by user", "INFO");
         $docker_compose_path = '/opt/loxberry/bin/plugins/timetrackingplugin';
-        $cmd = "cd " . escapeshellarg($docker_compose_path) . " && docker compose down 2>&1";
-        writeToLog("Executing docker compose down: $cmd", "INFO");
+        $cmd = "cd " . escapeshellarg($docker_compose_path) . " && sudo docker compose down 2>&1";
+        writeToDockerLog("Executing docker compose down: $cmd", "INFO");
         
         $output = shell_exec($cmd);
-        writeToLog("Docker stop command output: " . trim($output), "DOCKER");
+        writeToDockerLog("Docker stop command output: " . trim($output), "DOCKER");
         
         if (strpos($output, 'error') !== false || strpos($output, 'Error') !== false) {
-            writeToLog("Docker stop encountered errors", "ERROR");
+            writeToDockerLog("Docker stop encountered errors", "ERROR");
         } else {
-            writeToLog("Docker containers stopped successfully", "SUCCESS");
+            writeToDockerLog("Docker containers stopped successfully", "SUCCESS");
         }
         
         echo '<div class="alert alert-warning">
@@ -123,31 +176,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Restart Docker Compose (stop + start)
     if (isset($_POST['restart_docker'])) {
-        writeToLog("Docker Compose restart requested by user", "INFO");
+        writeToDockerLog("Docker Compose restart requested by user", "INFO");
         $docker_compose_path = '/opt/loxberry/bin/plugins/timetrackingplugin';
         
         // First stop
-        $stop_cmd = "cd " . escapeshellarg($docker_compose_path) . " && docker compose down 2>&1";
-        writeToLog("Executing restart - stopping containers: $stop_cmd", "INFO");
+        $stop_cmd = "cd " . escapeshellarg($docker_compose_path) . " && sudo docker compose down 2>&1";
+        writeToDockerLog("Executing restart - stopping containers: $stop_cmd", "INFO");
         $stop_output = shell_exec($stop_cmd);
-        writeToLog("Docker restart stop output: " . trim($stop_output), "DOCKER");
+        writeToDockerLog("Docker restart stop output: " . trim($stop_output), "DOCKER");
         
         // Then start
         if (file_exists($run_script)) {
             chmod($run_script, 0755);
-            $start_cmd = "cd " . escapeshellarg($docker_compose_path) . " && bash run_docker_compose.sh 2>&1";
-            writeToLog("Executing restart - starting with custom script: $start_cmd", "INFO");
+            $start_cmd = "cd " . escapeshellarg($docker_compose_path) . " && sudo bash run_docker_compose.sh 2>&1";
+            writeToDockerLog("Executing restart - starting with custom script: $start_cmd", "INFO");
         } else {
-            $start_cmd = "cd " . escapeshellarg($docker_compose_path) . " && docker compose up -d 2>&1";
-            writeToLog("Executing restart - starting containers: $start_cmd", "INFO");
+            $start_cmd = "cd " . escapeshellarg($docker_compose_path) . " && sudo docker compose up -d 2>&1";
+            writeToDockerLog("Executing restart - starting containers: $start_cmd", "INFO");
         }
         $start_output = shell_exec($start_cmd);
-        writeToLog("Docker restart start output: " . trim($start_output), "DOCKER");
+        writeToDockerLog("Docker restart start output: " . trim($start_output), "DOCKER");
         
         if (strpos($start_output, 'error') !== false || strpos($start_output, 'Error') !== false) {
-            writeToLog("Docker restart encountered errors", "ERROR");
+            writeToDockerLog("Docker restart encountered errors", "ERROR");
         } else {
-            writeToLog("Docker containers restarted successfully", "SUCCESS");
+            writeToDockerLog("Docker containers restarted successfully", "SUCCESS");
         }
         
         echo '<div class="alert alert-info">
@@ -163,13 +216,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Check Docker status
     if (isset($_POST['check_status'])) {
-        writeToLog("Docker status check requested by user", "INFO");
+        writeToDockerLog("Docker status check requested by user", "INFO");
         $docker_compose_path = '/opt/loxberry/bin/plugins/timetrackingplugin';
-        $cmd = "cd " . escapeshellarg($docker_compose_path) . " && docker ps -a 2>&1";
-        writeToLog("Executing status check: $cmd", "INFO");
+        $cmd = "cd " . escapeshellarg($docker_compose_path) . " && sudo docker ps -a 2>&1";
+        writeToDockerLog("Executing status check: $cmd", "INFO");
         
         $output = shell_exec($cmd);
-        writeToLog("Docker status output: " . trim($output), "DOCKER");
+        writeToDockerLog("Docker status output: " . trim($output), "DOCKER");
         
         echo '<div class="alert alert-info">
                 <h5><i class="fas fa-info-circle"></i> Docker Container Status</h5>

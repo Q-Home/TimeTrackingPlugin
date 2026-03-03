@@ -20,23 +20,76 @@ $navbar[3]['URL'] = 'logs.php';
 // Toon header
 LBWeb::lbheader($template_title, $helplink, $helptemplate);
 
-// Settings file path
+// Settings file paths
 $settings_file = '/opt/loxberry/data/plugins/timetrackingplugin/settings.json';
-$log_file = '/opt/loxberry/log/plugins/timetrackingplugin/api_debug.log';
+$log_file = '/opt/loxberry/log/plugins/timetrackingplugin/docker.log';
+$app_log_file = '/opt/loxberry/log/plugins/timetrackingplugin/app.log';
+$mqtt_log_file = '/opt/loxberry/log/plugins/timetrackingplugin/timetracking_mqtt.log';
 
-// Function to write debug logs
-function writeDebugLog($message) {
+// App logging function - for general app and API events
+function writeToLog($message, $type = 'INFO') {
+    global $app_log_file;
+    $timestamp = date('Y-m-d H:i:s');
+    $logEntry = "[$timestamp] [$type] $message" . PHP_EOL;
+    
+    // Ensure log directory exists
+    $log_dir = dirname($app_log_file);
+    if (!is_dir($log_dir)) {
+        @mkdir($log_dir, 0777, true);
+        @chmod($log_dir, 0777);
+    }
+    
+    // Create file if it doesn't exist
+    if (!file_exists($app_log_file)) {
+        @touch($app_log_file);
+        @chmod($app_log_file, 0666);
+    }
+    
+    @file_put_contents($app_log_file, $logEntry, FILE_APPEND | LOCK_EX);
+}
+
+// Docker logging function - for docker commands and output
+function writeToDockerLog($message, $type = 'INFO') {
     global $log_file;
     $timestamp = date('Y-m-d H:i:s');
-    $logEntry = "[$timestamp] $message" . PHP_EOL;
+    $logEntry = "[$timestamp] [$type] $message" . PHP_EOL;
     
     // Ensure log directory exists
     $log_dir = dirname($log_file);
     if (!is_dir($log_dir)) {
-        mkdir($log_dir, 0755, true);
+        @mkdir($log_dir, 0777, true);
+        @chmod($log_dir, 0777);
     }
     
-    file_put_contents($log_file, $logEntry, FILE_APPEND | LOCK_EX);
+    // Create file if it doesn't exist
+    if (!file_exists($log_file)) {
+        @touch($log_file);
+        @chmod($log_file, 0666);
+    }
+    
+    @file_put_contents($log_file, $logEntry, FILE_APPEND | LOCK_EX);
+}
+
+// MQTT logging function - for MQTT service events
+function writeToMQTTLog($message, $type = 'INFO') {
+    global $mqtt_log_file;
+    $timestamp = date('Y-m-d H:i:s');
+    $logEntry = "[$timestamp] [$type] $message" . PHP_EOL;
+    
+    // Ensure log directory exists
+    $log_dir = dirname($mqtt_log_file);
+    if (!is_dir($log_dir)) {
+        @mkdir($log_dir, 0777, true);
+        @chmod($log_dir, 0777);
+    }
+    
+    // Create file if it doesn't exist
+    if (!file_exists($mqtt_log_file)) {
+        @touch($mqtt_log_file);
+        @chmod($mqtt_log_file, 0666);
+    }
+    
+    @file_put_contents($mqtt_log_file, $logEntry, FILE_APPEND | LOCK_EX);
 }
 
 // Function to load settings
@@ -77,11 +130,11 @@ $backend_url = $settings['backend_url'];
 
 // Function to make API requests with improved error handling
 function makeAPIRequest($url, $method = 'GET', $data = null) {
-    writeDebugLog("Making API request: $method $url");
+    writeToLog("Making API request: $method $url");
     
     // Check if URL is valid
     if (!filter_var($url, FILTER_VALIDATE_URL)) {
-        writeDebugLog("Invalid URL: $url");
+        writeToLog("Invalid URL: $url");
         return ['success' => false, 'message' => 'Ongeldige URL configuratie'];
     }
     
@@ -100,14 +153,16 @@ function makeAPIRequest($url, $method = 'GET', $data = null) {
         if ($data) {
             $json_data = json_encode($data);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $json_data);
-            writeDebugLog("POST data: $json_data");
+            // Log only that data was submitted, not the sensitive content
+            writeToLog("POST request submitted with data fields: " . implode(', ', array_keys($data)), "INFO");
         }
     } elseif ($method === 'PUT') {
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
         if ($data) {
             $json_data = json_encode($data);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $json_data);
-            writeDebugLog("PUT data: $json_data");
+            // Log only that data was submitted, not the sensitive content
+            writeToLog("PUT request submitted with data fields: " . implode(', ', array_keys($data)), "INFO");
         }
     }
     
@@ -117,17 +172,17 @@ function makeAPIRequest($url, $method = 'GET', $data = null) {
     $info = curl_getinfo($ch);
     curl_close($ch);
     
-    writeDebugLog("Response HTTP Code: $httpCode");
-    writeDebugLog("Response body: " . substr($response, 0, 500)); // First 500 chars
+    writeToLog("Response HTTP Code: $httpCode");
+    // Do not log response body to avoid sensitive data exposure
     
     if ($error) {
-        writeDebugLog("cURL Error: $error");
+        writeToLog("cURL Error: $error", "ERROR");
         return ['success' => false, 'message' => 'Verbindingsfout: ' . $error];
     }
     
     // Check if response looks like HTML (error page)
     if (strpos(trim($response), '<!DOCTYPE') === 0 || strpos(trim($response), '<HTML') === 0) {
-        writeDebugLog("Received HTML response instead of JSON");
+        writeToLog("Received HTML response instead of JSON");
         return ['success' => false, 'message' => 'Backend server retourneerde een foutpagina in plaats van JSON. Controleer of de backend service actief is.'];
     }
     
@@ -135,12 +190,12 @@ function makeAPIRequest($url, $method = 'GET', $data = null) {
     $decodedResponse = json_decode($response, true);
     
     if (json_last_error() !== JSON_ERROR_NONE) {
-        writeDebugLog("JSON decode error: " . json_last_error_msg());
+        writeToLog("JSON decode error: " . json_last_error_msg());
         return ['success' => false, 'message' => 'Ongeldige JSON response van backend'];
     }
     
     $success = $httpCode >= 200 && $httpCode < 300;
-    writeDebugLog("Request success: " . ($success ? 'true' : 'false'));
+    writeToLog("Request success: " . ($success ? 'true' : 'false'));
     
     return [
         'success' => $success,
@@ -153,7 +208,7 @@ function makeAPIRequest($url, $method = 'GET', $data = null) {
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['add_user'])) {
-        writeDebugLog("Add user request started");
+        writeToLog("Add user request started");
         
         // Validate input data
         $required_fields = ['first_name', 'last_name', 'email', 'username', 'password', 'company_name', 'role'];
@@ -179,25 +234,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'role' => $_POST['role']
             ];
             
-            writeDebugLog("Attempting to add user: " . $userData['username']);
+            writeToLog("Attempting to add user: " . $userData['username']);
             $response = makeAPIRequest($backend_url . '/users/', 'POST', $userData);
             
             if ($response['success']) {
                 echo '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Gebruiker succesvol toegevoegd!</div>';
-                writeDebugLog("User added successfully");
+                writeToLog("User added successfully");
             } else {
                 echo '<div class="alert alert-danger">
                         <i class="fas fa-exclamation-triangle"></i> Fout bij toevoegen: <br>
                         <strong>' . htmlspecialchars($response['message']) . '</strong>
                         <br><small>HTTP Code: ' . ($response['http_code'] ?? 'N/A') . '</small>
                       </div>';
-                writeDebugLog("Failed to add user: " . $response['message']);
+                writeToLog("Failed to add user: " . $response['message']);
             }
         }
     }
     
     if (isset($_POST['toggle_user_status'])) {
-        writeDebugLog("Toggle user status request started");
+        writeToLog("Toggle user status request started");
         
         // Toggle user active/inactive status
         $username = $_POST['username'];
@@ -209,13 +264,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($response['success']) {
             $status = $blocked === 'true' ? 'gedeactiveerd' : 'geactiveerd';
             echo '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Gebruiker succesvol ' . $status . '!</div>';
-            writeDebugLog("User status changed successfully");
+            writeToLog("User status changed successfully");
         } else {
             echo '<div class="alert alert-danger">
                     <i class="fas fa-exclamation-triangle"></i> Fout bij wijzigen status: <br>
                     <strong>' . htmlspecialchars($response['message']) . '</strong>
                   </div>';
-            writeDebugLog("Failed to change user status: " . $response['message']);
+            writeToLog("Failed to change user status: " . $response['message']);
         }
     }
     
@@ -229,16 +284,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $settings = $new_settings; // Update current settings
             $backend_url = $settings['backend_url']; // Update backend URL
             echo '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Instellingen succesvol opgeslagen!</div>';
-            writeDebugLog("Settings updated successfully");
+            writeToLog("Settings updated successfully");
         } else {
             echo '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Fout bij opslaan instellingen!</div>';
-            writeDebugLog("Failed to save settings");
+            writeToLog("Failed to save settings");
         }
     }
     
     // Test backend connection
     if (isset($_POST['test_connection'])) {
-        writeDebugLog("Testing backend connection");
+        writeToLog("Testing backend connection");
         
         $response = makeAPIRequest($backend_url . '/health', 'GET');
         if (!$response['success']) {
@@ -258,12 +313,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Fetch users from backend - CORRECTE URL
-writeDebugLog("Fetching users from backend");
+writeToLog("Fetching users from backend");
 $usersResponse = makeAPIRequest($backend_url . '/loginusers/', 'GET');  // LET OP: één slash
 $users = $usersResponse['success'] ? ($usersResponse['data']['users'] ?? []) : [];
 
 if (!$usersResponse['success']) {
-    writeDebugLog("Failed to fetch users: " . $usersResponse['message']);
+    writeToLog("Failed to fetch users: " . $usersResponse['message']);
 }
 
 ?>

@@ -1,2 +1,5 @@
 # Sudoers file for the plugin. Note: All scripts in sbin will be added automatically
 loxberry ALL=(ALL) NOPASSWD: ALL
+
+# Allow www-data (webserver) to execute docker commands without password
+www-data ALL=(ALL) NOPASSWD: /usr/bin/docker, /usr/local/bin/docker, /usr/bin/docker-compose, /usr/local/bin/docker-compose

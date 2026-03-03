@@ -23,19 +23,97 @@ $docker_log = '/opt/loxberry/log/plugins/timetrackingplugin/docker.log';
 $mqtt_log = '/opt/loxberry/log/plugins/timetrackingplugin/timetracking_mqtt.log';
 $app_log = '/opt/loxberry/log/plugins/timetrackingplugin/app.log';
 
+// App logging function - for general app and API events
+function writeToLog($message, $type = 'INFO') {
+    global $app_log;
+    $timestamp = date('Y-m-d H:i:s');
+    $logEntry = "[$timestamp] [$type] $message" . PHP_EOL;
+    
+    // Ensure log directory exists
+    $log_dir = dirname($app_log);
+    if (!is_dir($log_dir)) {
+        @mkdir($log_dir, 0777, true);
+        @chmod($log_dir, 0777);
+    }
+    
+    // Create file if it doesn't exist
+    if (!file_exists($app_log)) {
+        @touch($app_log);
+        @chmod($app_log, 0666);
+    }
+    
+    @file_put_contents($app_log, $logEntry, FILE_APPEND | LOCK_EX);
+}
+
+// Docker logging function - for docker commands and output
+function writeToDockerLog($message, $type = 'INFO') {
+    global $docker_log;
+    $timestamp = date('Y-m-d H:i:s');
+    $logEntry = "[$timestamp] [$type] $message" . PHP_EOL;
+    
+    // Ensure log directory exists
+    $log_dir = dirname($docker_log);
+    if (!is_dir($log_dir)) {
+        @mkdir($log_dir, 0777, true);
+        @chmod($log_dir, 0777);
+    }
+    
+    // Create file if it doesn't exist
+    if (!file_exists($docker_log)) {
+        @touch($docker_log);
+        @chmod($docker_log, 0666);
+    }
+    
+    @file_put_contents($docker_log, $logEntry, FILE_APPEND | LOCK_EX);
+}
+
+// MQTT logging function - for MQTT service events
+function writeToMQTTLog($message, $type = 'INFO') {
+    global $mqtt_log;
+    $timestamp = date('Y-m-d H:i:s');
+    $logEntry = "[$timestamp] [$type] $message" . PHP_EOL;
+    
+    // Ensure log directory exists
+    $log_dir = dirname($mqtt_log);
+    if (!is_dir($log_dir)) {
+        @mkdir($log_dir, 0777, true);
+        @chmod($log_dir, 0777);
+    }
+    
+    // Create file if it doesn't exist
+    if (!file_exists($mqtt_log)) {
+        @touch($mqtt_log);
+        @chmod($mqtt_log, 0666);
+    }
+    
+    @file_put_contents($mqtt_log, $logEntry, FILE_APPEND | LOCK_EX);
+}
+
 // Handle log actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['clear_docker_log'])) {
+        writeToDockerLog("Docker log cleared by user", "INFO");
         if (file_exists($docker_log)) {
             file_put_contents($docker_log, '');
+            writeToLog("Docker log cleared successfully", "SUCCESS");
             echo '<div class="alert alert-success">Docker log cleared successfully!</div>';
         }
     }
     
     if (isset($_POST['clear_mqtt_log'])) {
+        writeToMQTTLog("MQTT log cleared by user", "INFO");
         if (file_exists($mqtt_log)) {
             file_put_contents($mqtt_log, '');
+            writeToLog("MQTT log cleared successfully", "SUCCESS");
             echo '<div class="alert alert-success">MQTT log cleared successfully!</div>';
+        }
+    }
+    
+    if (isset($_POST['clear_app_log'])) {
+        writeToLog("App log cleared by user", "INFO");
+        if (file_exists($app_log)) {
+            file_put_contents($app_log, '');
+            echo '<div class="alert alert-success">App log cleared successfully!</div>';
         }
     }
 }
@@ -150,7 +228,13 @@ function formatLogContent($content) {
             <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
                 <h4 class="mb-0"><i class="fas fa-cog"></i> Application Logs</h4>
                 <div>
-                    <button class="btn btn-outline-light btn-sm" onclick="refreshLogs()">
+                    <form method="POST" class="d-inline">
+                        <button type="submit" name="clear_app_log" class="btn btn-outline-light btn-sm" 
+                                onclick="return confirm('Are you sure you want to clear the App log?')">
+                            <i class="fas fa-trash"></i> Clear Log
+                        </button>
+                    </form>
+                    <button class="btn btn-outline-light btn-sm ml-2" onclick="refreshLogs()">
                         <i class="fas fa-refresh"></i> Refresh
                     </button>
                 </div>
