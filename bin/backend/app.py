@@ -305,7 +305,7 @@ def get_users():
             }
         ]
 
-        users_cursor = mongo.db['badge_logs'].aggregate(pipeline)
+        users_cursor = mongo.db['users'].aggregate(pipeline)
 
         users_list = []
         for user in users_cursor:

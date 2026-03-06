@@ -122,10 +122,8 @@ function saveSettings($settings_file, $settings) {
     return file_put_contents($settings_file, json_encode($settings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 }
 
-// Load current settings
+// Load settings at page initialization
 $settings = loadSettings($settings_file);
-
-// Backend API configuration from settings
 $backend_url = $settings['backend_url'];
 
 // Function to make API requests with improved error handling
@@ -285,6 +283,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $backend_url = $settings['backend_url']; // Update backend URL
             echo '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Instellingen succesvol opgeslagen!</div>';
             writeToLog("Settings updated successfully");
+            
+            // Re-fetch users with new backend URL
+            writeToLog("Re-fetching users with new backend URL");
+            $testResponse = makeAPIRequest($backend_url . '/users/', 'GET');
+            if ($testResponse['success'] && isset($testResponse['data']['users'])) {
+                $users = $testResponse['data']['users'];
+                $usersResponse = $testResponse;
+                writeToLog("Users re-fetched successfully: " . count($users) . " users loaded");
+            } else {
+                writeToLog("Failed to re-fetch users after settings update");
+            }
         } else {
             echo '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Fout bij opslaan instellingen!</div>';
             writeToLog("Failed to save settings");
@@ -312,13 +321,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Fetch users from backend - CORRECTE URL
+// Fetch users from backend - using correct endpoint
 writeToLog("Fetching users from backend");
-$usersResponse = makeAPIRequest($backend_url . '/loginusers/', 'GET');  // LET OP: één slash
-$users = $usersResponse['success'] ? ($usersResponse['data']['users'] ?? []) : [];
+$usersResponse = makeAPIRequest($backend_url . '/users/', 'GET');
+$users = [];
 
-if (!$usersResponse['success']) {
-    writeToLog("Failed to fetch users: " . $usersResponse['message']);
+if ($usersResponse['success']) {
+    // Handle the wrapped response format from backend
+    if (isset($usersResponse['data']['users']) && is_array($usersResponse['data']['users'])) {
+        $users = $usersResponse['data']['users'];
+        writeToLog("Successfully fetched " . count($users) . " users", "SUCCESS");
+    }
+} else {
+    writeToLog("Failed to fetch users: " . $usersResponse['message'], "WARNING");
 }
 
 ?>
@@ -470,54 +485,31 @@ if (!$usersResponse['success']) {
                                     <table class="table table-hover">
                                         <thead class="thead-dark">
                                             <tr>
-                                                <th><i class="fas fa-user"></i> Naam</th>
-                                                <th><i class="fas fa-envelope"></i> Email</th>
-                                                <th><i class="fas fa-building"></i> Bedrijf</th>
-                                                <th><i class="fas fa-user-tag"></i> Rol</th>
-                                                <th><i class="fas fa-info-circle"></i> Status</th>
-                                                <th><i class="fas fa-cogs"></i> Actie</th>
+                                                <th><i class="fas fa-user"></i> Voornaam</th>
+                                                <th><i class="fas fa-user"></i> Achternaam</th>
+                                                <th><i class="fas fa-at"></i> Gebruikersnaam</th>
+                                                <th><i class="fas fa-qrcode"></i> Badge Codes</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <?php foreach ($users as $user): ?>
                                                 <tr>
+                                                    <td><?= htmlspecialchars($user['first_name'] ?? 'N/A') ?></td>
+                                                    <td><?= htmlspecialchars($user['last_name'] ?? 'N/A') ?></td>
                                                     <td>
-                                                        <strong><?= htmlspecialchars($user['first_name'] . ' ' . $user['last_name']) ?></strong>
-                                                        <br><small class="text-muted">@<?= htmlspecialchars($user['username']) ?></small>
-                                                    </td>
-                                                    <td><?= htmlspecialchars($user['email']) ?></td>
-                                                    <td><?= htmlspecialchars($user['company_name'] ?? 'N/A') ?></td>
-                                                    <td>
-                                                        <span class="badge <?= $user['user_role'] === 'admin' ? 'badge-danger' : 'badge-secondary' ?>">
-                                                            <i class="fas <?= $user['user_role'] === 'admin' ? 'fa-crown' : 'fa-user' ?>"></i>
-                                                            <?= ucfirst(htmlspecialchars($user['user_role'])) ?>
-                                                        </span>
+                                                        <strong>@<?= htmlspecialchars($user['username'] ?? 'N/A') ?></strong>
                                                     </td>
                                                     <td>
-                                                        <?php if ($user['blocked']): ?>
-                                                            <span class="badge badge-danger">
-                                                                <i class="fas fa-ban"></i> Geblokkeerd
-                                                            </span>
+                                                        <?php 
+                                                            $badges = $user['badge_codes'] ?? [];
+                                                            if (empty($badges)): 
+                                                        ?>
+                                                            <span class="badge badge-secondary">Geen</span>
                                                         <?php else: ?>
-                                                            <span class="badge badge-success">
-                                                                <i class="fas fa-check"></i> Actief
-                                                            </span>
+                                                            <?php foreach ($badges as $badge): ?>
+                                                                <span class="badge badge-primary"><?= htmlspecialchars($badge) ?></span>
+                                                            <?php endforeach; ?>
                                                         <?php endif; ?>
-                                                    </td>
-                                                    <td>
-                                                        <form method="POST" style="display: inline;">
-                                                            <input type="hidden" name="username" value="<?= htmlspecialchars($user['username']) ?>">
-                                                            <input type="hidden" name="current_blocked" value="<?= $user['blocked'] ? 'true' : 'false' ?>">
-                                                            <button type="submit" name="toggle_user_status" 
-                                                                    class="btn btn-sm <?= $user['blocked'] ? 'btn-success' : 'btn-warning' ?>"
-                                                                    onclick="return confirm('Weet je zeker dat je de status wilt wijzigen?')">
-                                                                <?php if ($user['blocked']): ?>
-                                                                    <i class="fas fa-check"></i> Activeren
-                                                                <?php else: ?>
-                                                                    <i class="fas fa-ban"></i> Blokkeren
-                                                                <?php endif; ?>
-                                                            </button>
-                                                        </form>
                                                     </td>
                                                 </tr>
                                             <?php endforeach; ?>
