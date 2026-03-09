@@ -1,11 +1,12 @@
-'use strict';
+"use strict";
 
-const handleData = function (url, callbackFunctionName, callbackErrorFunctionName = null, method = 'GET', body = null) {
+const handleData = function (url, callbackFunctionName, callbackErrorFunctionName = null, method = "GET", body = null) {
   fetch(url, {
     method: method,
     body: body,
     headers: {
-      'content-type': 'application/json',
+      "content-type": "application/json",
+      Authorization: `Bearer ${localStorage.getItem("access_token")}`,
     },
   })
     .then(function (response) {
@@ -15,16 +16,16 @@ const handleData = function (url, callbackFunctionName, callbackErrorFunctionNam
           console.warn(`>> Callback errorfunctie ${callbackErrorFunctionName.name}(response) wordt opgeroepen`);
           callbackErrorFunctionName(response);
         } else {
-          console.warn('>> Er is geen callback errorfunctie meegegeven als parameter');
+          console.warn(">> Er is geen callback errorfunctie meegegeven als parameter");
         }
       } else {
-        console.info('>> Er is een response teruggekomen van de server');
+        console.info(">> Er is een response teruggekomen van de server");
         return response.json();
       }
     })
     .then(function (jsonObject) {
       if (jsonObject) {
-        console.info('>> JSONobject is aangemaakt');
+        console.info(">> JSONobject is aangemaakt");
         console.info(`>> Callbackfunctie ${callbackFunctionName.name}(response) wordt opgeroepen`);
         callbackFunctionName(jsonObject);
       }

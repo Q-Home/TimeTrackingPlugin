@@ -27,6 +27,7 @@ async function fetchBadges(filterParams = {}) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("access_token")}`,
       },
       body: JSON.stringify(requestBody),
     });
@@ -78,7 +79,11 @@ async function testAPI() {
 
   // Test health endpoint
   try {
-    const healthResponse = await fetch(`${url}/api/v1/health`);
+    const healthResponse = await fetch(`${url}/api/v1/health`, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+      },
+    });
     console.log("Health check:", healthResponse.status, await healthResponse.text());
   } catch (e) {
     console.error("Health check failed:", e);
@@ -86,7 +91,11 @@ async function testAPI() {
 
   // Test GET badges endpoint
   try {
-    const getResponse = await fetch(`${url}/api/v1/badges/`);
+    const getResponse = await fetch(`${url}/api/v1/badges/`, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+      },
+    });
     console.log("GET badges:", getResponse.status, await getResponse.text());
   } catch (e) {
     console.error("GET badges failed:", e);

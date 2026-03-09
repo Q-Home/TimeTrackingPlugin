@@ -1,5 +1,5 @@
 from bson.objectid import ObjectId
-
+from datetime import datetime, timedelta
 
 class BadgeRepository:
     def __init__(self, mongo):
@@ -40,3 +40,19 @@ class BadgeRepository:
         self.mongo.db["badge_logs"].create_index("badge_code")
         self.mongo.db["badge_logs"].create_index("username")
         self.mongo.db["badge_logs"].create_index("user_id")
+
+    def find_badges_for_user_and_day(self, username: str, day: datetime):
+        start_of_day = datetime(day.year, day.month, day.day)
+        end_of_day = start_of_day + timedelta(days=1)
+
+        return list(
+            self.mongo.db["badge_logs"]
+            .find({
+                    "username": username,
+                    "timestamp": {
+                        "$gte": start_of_day,
+                        "$lt": end_of_day
+                  }
+                })
+                .sort("timestamp", 1)
+    )

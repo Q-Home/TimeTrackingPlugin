@@ -22,7 +22,8 @@ from app.routes.auth_routes import register_auth_routes
 from app.routes.user_routes import register_user_routes
 from app.routes.badge_routes import register_badge_routes
 from app.routes.health_routes import register_health_routes
-
+from app.services.timesheet_service import TimesheetService
+from app.routes.timesheet_routes import register_timesheet_routes
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -46,12 +47,13 @@ def create_app():
     user_service = UserService(user_repository, badge_repository, log_repository)
     badge_service = BadgeService(badge_repository, log_repository)
     index_service = IndexService(user_repository, badge_repository, log_repository)
+    timesheet_service = TimesheetService(badge_repository)
 
     app.register_blueprint(register_auth_routes(auth_service, Config.API_PREFIX))
     app.register_blueprint(register_user_routes(user_service, Config.API_PREFIX))
     app.register_blueprint(register_badge_routes(badge_service, Config.API_PREFIX))
     app.register_blueprint(register_health_routes(mongo, Config.API_PREFIX))
-
+    app.register_blueprint(register_timesheet_routes(timesheet_service, Config.API_PREFIX))
     register_error_handlers(app)
 
     auth_service.create_default_admin()

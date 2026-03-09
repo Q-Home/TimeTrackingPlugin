@@ -31,15 +31,21 @@ class UserService:
 
             users = []
             for user in self.badge_repository.aggregate_users_from_badges(pipeline):
+                db_user = self.user_repository.find_by_username(user.get("username", ""))
+
                 users.append({
                     "username": user.get("username", ""),
                     "user_id": user.get("user_id", ""),
-                    "first_name": user.get("first_name", ""),
-                    "last_name": user.get("last_name", ""),
+                    "first_name": db_user.get("first_name", user.get("first_name", "")) if db_user else user.get("first_name", ""),
+                    "last_name": db_user.get("last_name", user.get("last_name", "")) if db_user else user.get("last_name", ""),
                     "badge_codes": user.get("badge_codes", []),
                     "total_scans": user.get("total_scans", 0),
                     "last_activity": DateHelper.to_iso(user.get("last_activity")),
-                    "first_activity": DateHelper.to_iso(user.get("first_activity"))
+                    "first_activity": DateHelper.to_iso(user.get("first_activity")),
+                    "company_name": db_user.get("company_name", "") if db_user else "",
+                    "email": db_user.get("email", "") if db_user else "",
+                    "user_role": db_user.get("role", "user") if db_user else "user",
+                    "blocked": db_user.get("blocked", False) if db_user else False,
                 })
 
             return success_response({
@@ -99,7 +105,8 @@ class UserService:
                 "password": hashed_pw.decode("utf-8"),
                 "role": data.get("role", "user"),
                 "blocked": data.get("blocked", False),
-                "created_at": DateHelper.utc_now()
+                "created_at": DateHelper.utc_now(),
+                "updated_at": DateHelper.utc_now()
             })
 
             self.log_repository.info(f"User created: {username}")
@@ -108,3 +115,120 @@ class UserService:
         except Exception as e:
             self.log_repository.error(f"Error creating user: {e}")
             return error_response("An error occurred while creating the user", 500)
+
+    def block_user(self, username):
+        try:
+            result = self.user_repository.update_by_username(username, {
+                "blocked": True,
+                "updated_at": DateHelper.utc_now()
+            })
+
+            if result.matched_count == 0:
+                return error_response("User not found", 404)
+
+            self.log_repository.info(f"User blocked: {username}")
+            return success_response(None, "User blocked successfully", 200)
+
+        except Exception as e:
+            self.log_repository.error(f"Error blocking user {username}: {e}")
+            return error_response("Failed to block user", 500)
+
+    def unblock_user(self, username):
+        try:
+            result = self.user_repository.update_by_username(username, {
+                "blocked": False,
+                "updated_at": DateHelper.utc_now()
+            })
+
+            if result.matched_count == 0:
+                return error_response("User not found", 404)
+
+            self.log_repository.info(f"User unblocked: {username}")
+            return success_response(None, "User unblocked successfully", 200)
+
+        except Exception as e:
+            self.log_repository.error(f"Error unblocking user {username}: {e}")
+            return error_response("Failed to unblock user", 500)
+
+    def delete_user(self, username):
+        try:
+            result = self.user_repository.delete_by_username(username)
+
+            if result.deleted_count == 0:
+                return error_response("User not found", 404)
+
+            self.log_repository.info(f"User deleted: {username}")
+            return success_response(None, "User deleted successfully", 200)
+
+        except Exception as e:
+            self.log_repository.error(f"Error deleting user {username}: {e}")
+            return error_response("Failed to delete user", 500)
+
+    def update_user_by_id(self, user_id, data):
+        try:
+            existing_user = self.user_repository.find_by_id(user_id)
+            if not existing_user:
+                return error_response("User not found", 404)
+
+            new_username = data.get("username", existing_user.get("username", "")).strip()
+            new_email = data.get("email", existing_user.get("email", "")).strip()
+
+            username_owner = self.user_repository.find_by_username(new_username)
+            if username_owner and str(username_owner["_id"]) != user_id:
+                return error_response("Username already exists", 400)
+
+            email_owner = self.user_repository.find_by_email(new_email)
+            if email_owner and str(email_owner["_id"]) != user_id:
+                return error_response("Email already exists", 400)
+
+            role_value = data.get("user_role", data.get("role", existing_user.get("role", "user")))
+
+            update_fields = {
+                "username": new_username,
+                "first_name": data.get("first_name", existing_user.get("first_name", "")),
+                "last_name": data.get("last_name", existing_user.get("last_name", "")),
+                "company_name": data.get("company_name", existing_user.get("company_name", "")),
+                "email": new_email,
+                "role": role_value,
+                "blocked": data.get("blocked", existing_user.get("blocked", False)),
+                "updated_at": DateHelper.utc_now()
+            }
+
+            result = self.user_repository.update_by_id(user_id, update_fields)
+
+            if result.matched_count == 0:
+                return error_response("User not found", 404)
+
+            self.log_repository.info(f"User updated by id: {user_id}")
+            return success_response(None, "User updated successfully", 200)
+
+        except Exception as e:
+            self.log_repository.error(f"Error updating user {user_id}: {e}")
+            return error_response("Failed to update user", 500)
+
+    def update_password_by_id(self, user_id, data):
+        try:
+            existing_user = self.user_repository.find_by_id(user_id)
+            if not existing_user:
+                return error_response("User not found", 404)
+
+            password = data.get("password", "").strip()
+            if len(password) < 6:
+                return error_response("Password must be at least 6 characters", 400)
+
+            hashed_pw = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
+
+            result = self.user_repository.update_by_id(user_id, {
+                "password": hashed_pw.decode("utf-8"),
+                "updated_at": DateHelper.utc_now()
+            })
+
+            if result.matched_count == 0:
+                return error_response("User not found", 404)
+
+            self.log_repository.info(f"Password updated for user id: {user_id}")
+            return success_response(None, "Password updated successfully", 200)
+
+        except Exception as e:
+            self.log_repository.error(f"Error updating password for user {user_id}: {e}")
+            return error_response("Failed to update password", 500)

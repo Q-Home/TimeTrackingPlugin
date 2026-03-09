@@ -1,132 +1,198 @@
 document.addEventListener("DOMContentLoaded", () => {
-    const role = sessionStorage.getItem('role');
+  const role = (localStorage.getItem("role") || "").toLowerCase();
+  const token = localStorage.getItem("access_token");
 
-    // if (role !== 'Admin') {
-    //     alert("You are not authorized to access this page.");
-    //     window.location.href = "dashboard.html";
-    // }
+  if (!token) {
+    window.location.href = "/index.html";
+    return;
+  }
 
-    const url = "http://173.212.225.50:5000";  // Basis-URL
+  if (role !== "admin") {
+    alert("You are not authorized to access this page.");
+    window.location.href = "/dashboard.html";
+    return;
+  }
 
-    const form = document.querySelector(".new-user-info form");
-    const submitButton = form.querySelector('button[type="submit"]');
-    const profilePic = document.querySelector(".profile-pic"); // Selecteer de afbeelding
-    const blockedStatusRadios = document.querySelectorAll('input[name="blockedStatus"]'); // Radio-knoppen voor blocked status
+  const hostname = window.location.hostname;
+  const url = `http://${hostname}:5000`;
+  const apiUrl = `${url}/api/v1`;
 
-    const checkUsernameUnique = async (username) => {
-        try {
-            const response = await fetch(`${url}/api/v1/users/exists/${username}`);
-            if (response.ok) {
-                const result = await response.json();
-                return result.exists; // Retourneer true als de gebruikersnaam bestaat
-            }
-            return false;
-        } catch (err) {
-            console.error("Error checking username uniqueness:", err);
-            return false;
-        }
+  const form = document.querySelector(".new-user-info form");
+  if (!form) {
+    console.error("Form not found.");
+    return;
+  }
+
+  const submitButton = form.querySelector('button[type="submit"]');
+  const profilePic = document.querySelector(".profile-pic");
+  const blockedStatusRadios = document.querySelectorAll('input[name="blockedStatus"]');
+
+  function authHeaders(includeJson = true) {
+    const headers = {
+      Authorization: `Bearer ${localStorage.getItem("access_token")}`,
     };
 
-    const checkEmailUnique = async (email) => {
-        try {
-            const response = await fetch(`${url}/api/v1/users/existsEmail/${email}`);
-            if (response.ok) {
-                const result = await response.json();
-                return result.exists; // Retourneer true als het e-mailadres bestaat
-            }
-            return false;
-        } catch (err) {
-            console.error("Error checking email uniqueness:", err);
-            return false;
-        }
-    };
+    if (includeJson) {
+      headers["Content-Type"] = "application/json";
+    }
 
-    // Luister naar wijzigingen in de radio-knoppen en wijzig de afbeelding
-    blockedStatusRadios.forEach(radio => {
-        radio.addEventListener("change", () => {
-            if (radio.value === "true" && radio.checked) {
-                profilePic.src = "images/user/11.png"; // Blokkeerafbeelding
-            } else if (radio.value === "false" && radio.checked) {
-                profilePic.src = "images/user/11_green.png"; // Niet-geblokkeerde afbeelding
-            }
-        });
+    return headers;
+  }
+
+  function handleAuthError(response) {
+    if (response.status === 401) {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("username");
+      localStorage.removeItem("role");
+      window.location.href = "/index.html";
+      return true;
+    }
+
+    if (response.status === 403) {
+      alert("Geen toegang.");
+      return true;
+    }
+
+    return false;
+  }
+
+  async function checkUsernameUnique(username) {
+    try {
+      const response = await fetch(`${apiUrl}/users/${encodeURIComponent(username)}`, {
+        method: "GET",
+        headers: authHeaders(false),
+      });
+
+      if (response.status === 404) {
+        return false;
+      }
+
+      if (handleAuthError(response)) return true;
+
+      return response.ok;
+    } catch (err) {
+      console.error("Error checking username uniqueness:", err);
+      return false;
+    }
+  }
+
+  async function checkEmailUnique(email) {
+    try {
+      const response = await fetch(`${apiUrl}/users/`, {
+        method: "GET",
+        headers: authHeaders(false),
+      });
+
+      if (handleAuthError(response)) return true;
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || result.message || "Failed to check email");
+      }
+
+      const users = result?.data?.users || result?.users || [];
+      return users.some(
+        (user) => (user.email || "").toLowerCase() === email.toLowerCase()
+      );
+    } catch (err) {
+      console.error("Error checking email uniqueness:", err);
+      return false;
+    }
+  }
+
+  blockedStatusRadios.forEach((radio) => {
+    radio.addEventListener("change", () => {
+      if (!profilePic) return;
+
+      if (radio.value === "true" && radio.checked) {
+        profilePic.src = "images/user/11.png";
+      } else if (radio.value === "false" && radio.checked) {
+        profilePic.src = "images/user/11_green.png";
+      }
     });
+  });
 
-    submitButton.addEventListener("click", async (event) => {
-        event.preventDefault(); // Voorkomt standaardformulierverzending
+  submitButton.addEventListener("click", async (event) => {
+    event.preventDefault();
 
-        // Verzamel formuliergegevens
-        const formData = {
-            username: document.getElementById("uname").value.toLowerCase(),
-            first_name: document.getElementById("fname").value.trim(),
-            last_name: document.getElementById("lname").value.trim(),
-            company_name: document.getElementById("cname").value.trim(),
-            email: document.getElementById("email").value.trim(),
-            user_role: document.getElementById("selectuserrole").value,
-            password: document.getElementById("pass").value.trim(),
-            repeatPassword: document.getElementById("rpass").value.trim(),
-            blocked: document.querySelector('input[name="blockedStatus"]:checked').value === "true"
-        };
+    const username = (document.getElementById("uname")?.value || "").trim().toLowerCase();
+    const firstName = (document.getElementById("fname")?.value || "").trim();
+    const lastName = (document.getElementById("lname")?.value || "").trim();
+    const companyName = (document.getElementById("cname")?.value || "").trim();
+    const email = (document.getElementById("email")?.value || "").trim();
+    const selectedRole = (document.getElementById("selectuserrole")?.value || "").trim();
+    const password = (document.getElementById("pass")?.value || "").trim();
+    const repeatPassword = (document.getElementById("rpass")?.value || "").trim();
+    const blocked =
+      document.querySelector('input[name="blockedStatus"]:checked')?.value === "true";
 
-        // Validatie
-        const errors = [];
-        if (!formData.username) errors.push("User Name is required.");
-        if (!formData.first_name) errors.push("First Name is required.");
-        if (!formData.last_name) errors.push("Last Name is required.");
-        if (!formData.email) errors.push("Email address is required.");
-        if (!formData.user_role || formData.user_role === "Select") errors.push("Please select a User Role.");
-        if (!formData.password) errors.push("Password is required.");
-        if (formData.password !== formData.repeatPassword) errors.push("Passwords do not match.");
+    const errors = [];
 
-        // // Controleer of de gebruikersnaam uniek is
-        // if (formData.username) {
-        //     const usernameExists = await checkUsernameUnique(formData.username);
-        //     if (usernameExists) errors.push("Username already exists. Please choose another.");
-        // }
+    if (!username) errors.push("User Name is required.");
+    if (!firstName) errors.push("First Name is required.");
+    if (!lastName) errors.push("Last Name is required.");
+    if (!email) errors.push("Email address is required.");
+    if (!selectedRole || selectedRole === "Select") errors.push("Please select a User Role.");
+    if (!password) errors.push("Password is required.");
+    if (password.length < 6) errors.push("Password must be at least 6 characters.");
+    if (password !== repeatPassword) errors.push("Passwords do not match.");
 
-        // // Controleer of het e-mailadres uniek is
-        // if (formData.email) {
-        //     const emailExists = await checkEmailUnique(formData.email);
-        //     if (emailExists) errors.push("Email address already exists. Please choose another.");
-        // }
+    if (username) {
+      const usernameExists = await checkUsernameUnique(username);
+      if (usernameExists) {
+        errors.push("Username already exists. Please choose another.");
+      }
+    }
 
-        // Als er validatiefouten zijn, toon ze en stop de verwerking
-        if (errors.length > 0) {
-            alert("Validation Errors:\n" + errors.join("\n"));
-            return;
-        }
+    if (email) {
+      const emailExists = await checkEmailUnique(email);
+      if (emailExists) {
+        errors.push("Email address already exists. Please choose another.");
+      }
+    }
 
-        try {
-            // Verstuur de gegevens naar de server
-            const response = await fetch(`${url}/api/v1/user/add/`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    username: formData.username,
-                    first_name: formData.first_name,
-                    last_name: formData.last_name,
-                    company_name: formData.company_name,
-                    email: formData.email,
-                    user_role: formData.user_role,
-                    password: formData.password,
-                    blocked: formData.blocked
-                })
-            });
+    if (errors.length > 0) {
+      alert("Validation Errors:\n" + errors.join("\n"));
+      return;
+    }
 
-            if (response.ok) {
-                const result = await response.json();
-                alert("User created successfully with ID: " + result.user_id);
-                form.reset(); // Reset het formulier na succesvolle invoer
-                profilePic.src = "images/user/11_green.png"; // Reset afbeelding naar niet-geblokkeerd
-            } else {
-                const error = await response.json();
-                alert("Error: " + (error.message || "Unknown error occurred."));
-            }
-        } catch (err) {
-            console.error("Network error:", err);
-            alert("A network error occurred. Please try again.");
-        }
-    });
+    try {
+      const response = await fetch(`${apiUrl}/users/`, {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({
+          username: username,
+          first_name: firstName,
+          last_name: lastName,
+          company_name: companyName,
+          email: email,
+          role: selectedRole,
+          password: password,
+          blocked: blocked,
+        }),
+      });
+
+      if (handleAuthError(response)) return;
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || result.message || "Unknown error occurred.");
+      }
+
+      alert(result.message || "User created successfully.");
+
+      form.reset();
+
+      if (profilePic) {
+        profilePic.src = "images/user/11_green.png";
+      }
+
+      window.location.href = "/users-list.html";
+    } catch (err) {
+      console.error("Create user error:", err);
+      alert(err.message || "A network error occurred. Please try again.");
+    }
+  });
 });

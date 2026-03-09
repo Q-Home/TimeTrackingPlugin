@@ -118,4 +118,29 @@ def register_user_routes(user_service, api_prefix):
         """
         return user_service.create_user(request.get_json() or {})
 
+    @user_bp.route(f"{api_prefix}/users/<username>/block", methods=["PUT"])
+    @admin_required
+    def block_user(username):
+        return user_service.block_user(username)
+
+    @user_bp.route(f"{api_prefix}/users/<username>/unblock", methods=["PUT"])
+    @admin_required
+    def unblock_user(username):
+        return user_service.unblock_user(username)
+
+    @user_bp.route(f"{api_prefix}/users/<username>", methods=["DELETE"])
+    @admin_required
+    def delete_user(username):
+        return user_service.delete_user(username)
+
+    @user_bp.route(f"{api_prefix}/users/<user_id>", methods=["PUT"])
+    @admin_required
+    def update_user_by_id(user_id):
+        return user_service.update_user_by_id(user_id, request.get_json() or {})
+
+    @user_bp.route(f"{api_prefix}/users/<user_id>/password", methods=["PUT"])
+    @admin_required
+    def update_password_by_id(user_id):
+        return user_service.update_password_by_id(user_id, request.get_json() or {})
+
     return user_bp

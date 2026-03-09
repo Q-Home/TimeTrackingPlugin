@@ -1,46 +1,69 @@
 document.addEventListener("DOMContentLoaded", function () {
-  // Dynamische URL configuratie op basis van omgeving
- 
   const hostname = window.location.hostname;
-
-
   const url = `http://${hostname}:5000`;
+
   console.debug("URL voor API:", url);
   console.debug("Document is geladen, event listeners worden ingesteld.");
 
-  document.getElementById("loginForm").addEventListener("submit", async function (event) {
-    event.preventDefault(); // Voorkom standaard verzending
+  const loginForm = document.getElementById("loginForm");
+
+  if (!loginForm) {
+    console.error("loginForm niet gevonden");
+    return;
+  }
+
+  loginForm.addEventListener("submit", async function (event) {
+    event.preventDefault();
 
     const usernameOrEmail = document.getElementById("username").value.trim();
     const password = document.getElementById("password").value.trim();
 
-    console.debug("Formulier verzonden met gegevens:", { usernameOrEmail, password }); // Debugging
+    console.debug("Formulier verzonden met gegevens:", {
+      usernameOrEmail,
+      password: password ? "***" : ""
+    });
 
     if (!usernameOrEmail || !password) {
-      alert("Gebruikersnaam/e-mail en wachtwoord mogen niet leeg zijn!");
+      alert("Gebruikersnaam/e-mail en wachtwoord mogen niet leeg zijn.");
       return;
     }
 
-    const data = { username: usernameOrEmail, password };
+    const data = {
+      username: usernameOrEmail,
+      password: password
+    };
 
     try {
       const response = await fetch(`${url}/api/v1/login`, {
-        // Verwijderde trailing slash
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
       });
 
+      const responseData = await response.json();
+      console.debug("Login response:", responseData);
+
       if (response.status === 200) {
-        const responseData = await response.json();
-        sessionStorage.setItem("username", responseData.username);
-        sessionStorage.setItem("role", responseData.role || "user");
-        console.log("Ingelogd als:", responseData.username, "met rol:", responseData.role || "user");
+        const token = responseData?.data?.access_token;
+        const username = responseData?.data?.username;
+        const role = responseData?.data?.role || "user";
+
+        if (!token || !username) {
+          throw new Error("Login response bevat geen geldig token of username.");
+        }
+
+        localStorage.setItem("access_token", token);
+        localStorage.setItem("username", username);
+        localStorage.setItem("role", role);
+
+        console.log("Ingelogd als:", username, "met rol:", role);
         window.location.href = "/badgelist.html";
       } else if (response.status === 401) {
-        alert("Onjuiste inloggegevens. Probeer het opnieuw.");
+        alert(responseData.error || "Onjuiste inloggegevens. Probeer het opnieuw.");
       } else if (response.status === 403) {
-        alert("Uw account is geblokkeerd of u heeft geen toegang. Neem contact op met de beheerder.");
+        alert(responseData.error || "Uw account is geblokkeerd of u heeft geen toegang.");
         window.location.href = "/index.html";
       } else if (response.status === 500) {
         window.location.href = "/pages-error-500.html";

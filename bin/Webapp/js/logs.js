@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   // const url = "http://173.212.225.50:8000"; process.env.URL || "http://173.212.225.50:8000"; // Basis-URL
-  const url = "http://172.28.0.15:5000";
+  const hostname = window.location.hostname;
+  const url = `http://${hostname}:5000`;
   const logsEndpoint = url + "/api/v1/transactie/all/"; // Endpoint om logs op te halen
   const tableBody = document.querySelector(".js-Logs");
   const paginationContainer = document.getElementById("pagination");
@@ -15,11 +16,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   searchInput.addEventListener(
     "input",
-    debounce(() => filterLogs(), 300)
+    debounce(() => filterLogs(), 300),
   );
   logTypeFilter.addEventListener(
     "change",
-    debounce(() => filterLogs(), 300)
+    debounce(() => filterLogs(), 300),
   );
 
   // Functie om logs te filteren
@@ -39,7 +40,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // Logs ophalen van de API
   async function fetchLogs() {
     try {
-      const response = await fetch(logsEndpoint);
+      const response = await fetch(logsEndpoint, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+      });
       if (!response.ok) throw new Error("Fout bij het ophalen van logs");
 
       const data = await response.json();
