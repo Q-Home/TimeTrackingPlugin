@@ -1,4 +1,5 @@
 from bson.objectid import ObjectId
+from app.models.badge import Badge
 from app.validators.badge_validator import BadgeValidator
 from app.utils.response import success_response, error_response
 from app.utils.date_helper import DateHelper
@@ -84,21 +85,9 @@ class BadgeService:
             cursor = self.badge_repository.find_badges(query, skip, limit)
 
             badges = []
-            for badge in cursor:
-                badges.append({
-                    "id": str(badge["_id"]),
-                    "badge_code": badge.get("badge_code", ""),
-                    "timestamp": DateHelper.to_iso(badge.get("timestamp")),
-                    "username": badge.get("username", ""),
-                    "user_id": badge.get("user_id", ""),
-                    "first_name": badge.get("first_name", ""),
-                    "last_name": badge.get("last_name", ""),
-                    "action": badge.get("action", ""),
-                    "location": badge.get("location", ""),
-                    "device_id": badge.get("device_id", ""),
-                    "raw_data": badge.get("raw_data", {}),
-                    "processed": badge.get("processed", False)
-                })
+            for badge_doc in cursor:
+                badge = Badge.from_mongo(badge_doc)
+                badges.append(badge.to_dict())
 
             total_pages = (total_count + limit - 1) // limit
 
@@ -123,26 +112,12 @@ class BadgeService:
 
     def get_badge_by_id(self, badge_id):
         try:
-            badge = self.badge_repository.find_badge_by_id(badge_id)
-            if not badge:
+            badge_doc = self.badge_repository.find_badge_by_id(badge_id)
+            if not badge_doc:
                 return error_response("Badge log not found", 404)
 
-            return success_response({
-                "id": str(badge["_id"]),
-                "badge_code": badge.get("badge_code", ""),
-                "timestamp": DateHelper.to_iso(badge.get("timestamp")),
-                "username": badge.get("username", ""),
-                "user_id": badge.get("user_id", ""),
-                "first_name": badge.get("first_name", ""),
-                "last_name": badge.get("last_name", ""),
-                "action": badge.get("action", ""),
-                "location": badge.get("location", ""),
-                "device_id": badge.get("device_id", ""),
-                "raw_data": badge.get("raw_data", {}),
-                "processed": badge.get("processed", False),
-                "created_at": DateHelper.to_iso(badge.get("created_at")),
-                "updated_at": DateHelper.to_iso(badge.get("updated_at"))
-            }, "Badge retrieved successfully")
+            badge = Badge.from_mongo(badge_doc)
+            return success_response(badge.to_dict(), "Badge retrieved successfully")
 
         except Exception as e:
             self.log_repository.error(f"Error retrieving badge {badge_id}: {e}")
@@ -154,31 +129,29 @@ class BadgeService:
             return validation
 
         try:
-            badge_log = {
-                "badge_code": data.get("badge_code"),
-                "timestamp": DateHelper.utc_now(),
-                "username": data.get("username", ""),
-                "user_id": data.get("user_id", ""),
-                "first_name": data.get("first_name", ""),
-                "last_name": data.get("last_name", ""),
-                "action": data.get("action", "scan"),
-                "location": data.get("location", ""),
-                "device_id": data.get("device_id", ""),
-                "raw_data": data.get("raw_data", {}),
-                "processed": False,
-                "created_at": DateHelper.utc_now(),
-                "updated_at": DateHelper.utc_now()
-            }
+            badge = Badge(
+                badge_code=data.get("badge_code"),
+                action=data.get("action", "SCAN"),
+                username=data.get("username", ""),
+                user_id=data.get("user_id", ""),
+                first_name=data.get("first_name", ""),
+                last_name=data.get("last_name", ""),
+                location=data.get("location", ""),
+                device_id=data.get("device_id", ""),
+                raw_data=data.get("raw_data", {}),
+                processed=False,
+            )
 
-            result = self.badge_repository.insert_badge(badge_log)
-            self.log_repository.info(f"Badge log created: {data.get('badge_code')}")
+            result = self.badge_repository.insert_badge(badge.to_mongo_dict())
+            self.log_repository.info(f"Badge log created: {badge.badge_code} - {badge.action}")
 
             return success_response({
                 "id": str(result.inserted_id),
-                "badge_code": badge_log["badge_code"],
-                "timestamp": badge_log["timestamp"].isoformat()
+                **badge.to_dict()
             }, "Badge log created successfully", 201)
 
+        except ValueError as e:
+            return error_response(str(e), 400)
         except Exception as e:
             self.log_repository.error(f"Error creating badge log: {e}")
             return error_response(str(e), 500)
@@ -188,12 +161,15 @@ class BadgeService:
             update_fields = {}
             updatable_fields = [
                 "processed", "username", "user_id",
-                "first_name", "last_name", "action", "location"
+                "first_name", "last_name", "action", "location", "device_id"
             ]
 
             for field in updatable_fields:
                 if field in data:
-                    update_fields[field] = data[field]
+                    if field == "action":
+                        update_fields[field] = str(data[field]).upper()
+                    else:
+                        update_fields[field] = data[field]
 
             if not update_fields:
                 return error_response("No valid fields to update", 400)
