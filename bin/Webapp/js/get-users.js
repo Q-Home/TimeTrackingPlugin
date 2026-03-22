@@ -140,6 +140,10 @@ function renderUsers() {
   pageUsers.forEach((user) => {
     const row = document.createElement("tr");
     row.setAttribute("data-username", user.username);
+    row.classList.add("timesheet-user-row");
+    row.setAttribute("tabindex", "0");
+    row.setAttribute("role", "link");
+    row.setAttribute("aria-label", `Open timesheet for ${user.display_name}`);
 
     const statusClass =
       user.activity_status === "Today"
@@ -150,16 +154,16 @@ function renderUsers() {
 
     row.innerHTML = `
       <td class="text-center">
-        <div class="avatar-sm bg-primary rounded-circle d-flex align-items-center justify-content-center">
+        <div class="avatar-sm timesheet-avatar bg-primary rounded-circle d-flex align-items-center justify-content-center">
           <span class="text-white font-weight-bold">${escapeHtml(getInitials(user.display_name))}</span>
         </div>
       </td>
       <td>${escapeHtml(user.first_name || "-")}</td>
       <td>${escapeHtml(user.last_name || "-")}</td>
-      <td><strong>${escapeHtml(user.username || "-")}</strong></td>
-      <td>${escapeHtml(user.user_role || "user")}</td>
-      <td>${escapeHtml(user.company_name || "-")}</td>
-      <td>${escapeHtml(user.email || "-")}</td>
+      <td>
+        <strong>${escapeHtml(user.username || "-")}</strong>
+        <small class="timesheet-meta">${escapeHtml(user.email || "-")}</small>
+      </td>
       <td>
         <span class="badge badge-outline-primary">${escapeHtml(user.primary_badge)}</span>
         ${
@@ -174,17 +178,17 @@ function renderUsers() {
       </td>
       <td><span class="badge badge-info">${user.total_scans}</span></td>
       <td>
-        <div class="d-flex align-items-center list-user-action">
-          <a class="iq-bg-primary js-view-user mr-1" href="#" title="View Details">
-            <i class="ri-eye-line"></i>
+        <div class="d-flex align-items-center justify-content-end flex-wrap list-user-action">
+          <a class="btn btn-outline-primary btn-sm d-inline-flex align-items-center timesheet-action-button js-open-timesheet mr-1 mb-1" href="timesheet.html?username=${encodeURIComponent(user.username)}" title="Open Timesheet">
+            <i class="ri-eye-line mr-1"></i><span>Timesheet</span>
           </a>
-          <a class="iq-bg-primary js-edit-user mr-1" href="#" title="Edit">
+          <a class="iq-bg-primary js-edit-user mr-1 mb-1" href="#" title="Edit">
             <i class="ri-pencil-line"></i>
           </a>
-          <a class="iq-bg-primary ${user.blocked ? "js-unblock-user" : "js-block-user"} mr-1" href="#" title="${user.blocked ? "Unblock" : "Block"}">
+          <a class="iq-bg-primary ${user.blocked ? "js-unblock-user" : "js-block-user"} mr-1 mb-1" href="#" title="${user.blocked ? "Unblock" : "Block"}">
             ${user.blocked ? "✅" : "🚫"}
           </a>
-          <a class="iq-bg-primary js-delete-user" href="#" title="Delete">
+          <a class="iq-bg-primary js-delete-user mb-1" href="#" title="Delete">
             <i class="ri-delete-bin-line"></i>
           </a>
         </div>
@@ -216,17 +220,32 @@ function applyRoleRestrictions() {
 }
 
 function bindRowActions() {
-  document.querySelectorAll(".js-view-user").forEach((btn) => {
+  document.querySelectorAll(".js-open-timesheet").forEach((btn) => {
     btn.addEventListener("click", function (event) {
+      event.stopPropagation();
+    });
+  });
+
+  document.querySelectorAll(".timesheet-user-row").forEach((row) => {
+    row.addEventListener("click", function (event) {
+      if (event.target.closest(".list-user-action")) return;
+      const username = this.getAttribute("data-username");
+      if (username) openTimesheet(username);
+    });
+
+    row.addEventListener("keydown", function (event) {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      if (event.target.closest(".list-user-action")) return;
       event.preventDefault();
-      const username = this.closest("tr")?.getAttribute("data-username");
-      if (username) viewUserDetails(username);
+      const username = this.getAttribute("data-username");
+      if (username) openTimesheet(username);
     });
   });
 
   document.querySelectorAll(".js-edit-user").forEach((btn) => {
     btn.addEventListener("click", function (event) {
       event.preventDefault();
+      event.stopPropagation();
       const username = this.closest("tr")?.getAttribute("data-username");
       if (username) {
         window.location.href = `edit-user.html?username=${encodeURIComponent(username)}`;
@@ -237,6 +256,7 @@ function bindRowActions() {
   document.querySelectorAll(".js-block-user").forEach((btn) => {
     btn.addEventListener("click", function (event) {
       event.preventDefault();
+      event.stopPropagation();
       const username = this.closest("tr")?.getAttribute("data-username");
       if (username) confirmBlockUser(username);
     });
@@ -245,6 +265,7 @@ function bindRowActions() {
   document.querySelectorAll(".js-unblock-user").forEach((btn) => {
     btn.addEventListener("click", function (event) {
       event.preventDefault();
+      event.stopPropagation();
       const username = this.closest("tr")?.getAttribute("data-username");
       if (username) confirmUnblockUser(username);
     });
@@ -253,41 +274,15 @@ function bindRowActions() {
   document.querySelectorAll(".js-delete-user").forEach((btn) => {
     btn.addEventListener("click", function (event) {
       event.preventDefault();
+      event.stopPropagation();
       const username = this.closest("tr")?.getAttribute("data-username");
       if (username) confirmDeleteUser(username);
     });
   });
 }
 
-async function viewUserDetails(username) {
-  try {
-    const response = await fetch(`${url}/api/v1/users/${encodeURIComponent(username)}`, {
-      method: "GET",
-      headers: authHeaders(),
-    });
-
-    if (handleAuthError(response)) return;
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.error || result.message || `HTTP ${response.status}`);
-    }
-
-    const user = result?.data || result;
-    alert(
-      `User Details:\n\n` +
-        `Name: ${(user.first_name || "")} ${(user.last_name || "")}\n` +
-        `Username: ${user.username || "-"}\n` +
-        `Email: ${user.email || "-"}\n` +
-        `Company: ${user.company_name || "-"}\n` +
-        `Role: ${user.user_role || user.role || "-"}\n` +
-        `Blocked: ${user.blocked ? "Yes" : "No"}`
-    );
-  } catch (error) {
-    console.error("Error loading user details:", error);
-    alert(`Kon gebruiker niet ophalen: ${error.message}`);
-  }
+function openTimesheet(username) {
+  window.location.href = `timesheet.html?username=${encodeURIComponent(username)}`;
 }
 
 function confirmDeleteUser(username) {
@@ -667,4 +662,4 @@ function escapeHtml(value) {
 window.changePage = changePage;
 window.exportUsers = exportUsers;
 window.refreshUsers = refreshUsers;
-window.viewUserDetails = viewUserDetails;
+window.openTimesheet = openTimesheet;
