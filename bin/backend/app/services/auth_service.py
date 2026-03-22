@@ -1,4 +1,5 @@
 import bcrypt
+from pymongo.errors import DuplicateKeyError
 from flask_jwt_extended import create_access_token
 from app.config import Config
 from app.utils.response import success_response, error_response
@@ -51,13 +52,9 @@ class AuthService:
             username = Config.DEFAULT_ADMIN_USERNAME
             password = Config.DEFAULT_ADMIN_PASSWORD
 
-            existing_admin = self.user_repository.find_by_username(username)
-            if existing_admin:
-                return
-
             hashed_pw = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
 
-            self.user_repository.create_user({
+            result = self.user_repository.create_default_admin_if_missing({
                 "username": username,
                 "first_name": "Administrator",
                 "last_name": "User",
@@ -68,6 +65,12 @@ class AuthService:
                 "blocked": False
             })
 
-            self.log_repository.info("Default admin user created")
+            if result.upserted_id:
+                self.log_repository.info("Default admin user created")
+            else:
+                self.log_repository.info("Default admin user already exists")
+
+        except DuplicateKeyError:
+            self.log_repository.info("Default admin already created by another worker")
         except Exception as e:
             self.log_repository.error(f"Error creating default admin: {e}")

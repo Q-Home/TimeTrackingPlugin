@@ -49,3 +49,15 @@ class UserRepository:
     def create_indexes(self):
         self.mongo.db["users"].create_index("username", unique=True)
         self.mongo.db["users"].create_index("email", unique=True)
+        
+    def create_default_admin_if_missing(self, user_data: dict):
+        return self.mongo.db["users"].update_one(
+            {
+                "$or": [
+                    {"username": user_data["username"]},
+                    {"email": user_data["email"]}
+                ]
+            },
+            {"$setOnInsert": user_data},
+            upsert=True
+        )
