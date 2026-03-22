@@ -20,10 +20,38 @@
    <link rel="stylesheet" href="css/bootstrap.min.css">
    <!-- Typography CSS -->
    <link rel="stylesheet" href="css/typography.css">
-   <!-- Style CSS -->
-   <link rel="stylesheet" href="css/style.css">
-   <!-- Responsive CSS -->
-   <link rel="stylesheet" href="css/responsive.css">
+    <!-- Style CSS -->
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Responsive CSS -->
+    <link rel="stylesheet" href="css/responsive.css">
+    <style>
+      .timesheet-user-row {
+         cursor: pointer;
+      }
+
+      .timesheet-user-row:hover {
+         background-color: rgba(0, 123, 255, 0.04);
+      }
+
+      .timesheet-avatar {
+         width: 42px;
+         height: 42px;
+         margin: 0 auto;
+         font-size: 0.95rem;
+      }
+
+      .timesheet-meta {
+         display: block;
+         margin-top: 0.2rem;
+         font-size: 0.75rem;
+         color: #6c757d;
+      }
+
+      .timesheet-action-button {
+         min-width: 118px;
+         justify-content: center;
+      }
+    </style>
 </head>
 
 <body>
@@ -63,7 +91,7 @@
             <nav class="navbar navbar-expand-lg navbar-light p-0">
                <div class="navbar-breadcrumb">
                   <h4 class="mb-0 text-dark">Timesheet Overview</h4>
-                  <p class="mb-0"><span class="text-primary">User Timesheets,</span> Select a user to view their timesheet</p>
+                  <p class="mb-0"><span class="text-primary">User Timesheets,</span> Select a user or click the timesheet button to open their overview</p>
                </div>
 
                <div class="collapse navbar-collapse" id="navbarSupportedContent">
