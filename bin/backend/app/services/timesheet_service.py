@@ -3,7 +3,11 @@ from app.models.badge import Badge
 
 
 class TimesheetService:
-    VALID_ACTIONS = {"START", "STOP", "BREAK", "RETURN"}
+    VALID_ACTIONS = {"START", "STOP", "BREAK", "RETURN", "SCAN_IN", "SCAN_OUT"}
+    ACTION_ALIASES = {
+        "SCAN_IN": "START",
+        "SCAN_OUT": "STOP",
+    }
 
     def __init__(self, badge_repository):
         self.badge_repository = badge_repository
@@ -21,7 +25,7 @@ class TimesheetService:
 
         for log_doc in badge_logs:
             badge = Badge.from_mongo(log_doc)
-            action = badge.action
+            action = self._normalize_action(badge.action)
             timestamp = badge.timestamp
 
             if action not in self.VALID_ACTIONS:
@@ -87,6 +91,10 @@ class TimesheetService:
             "is_complete": status == "idle",
             "errors": errors
         }
+
+    def _normalize_action(self, action: str) -> str:
+        normalized = str(action or "").upper()
+        return self.ACTION_ALIASES.get(normalized, normalized)
 
     def get_user_timesheet_for_day(self, username: str, day: datetime):
         start_of_day = datetime(day.year, day.month, day.day, 0, 0, 0, 0)

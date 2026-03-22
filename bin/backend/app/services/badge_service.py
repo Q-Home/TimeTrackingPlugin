@@ -1,4 +1,5 @@
 from bson.objectid import ObjectId
+from datetime import datetime, timezone
 from app.models.badge import Badge
 from app.validators.badge_validator import BadgeValidator
 from app.utils.response import success_response, error_response
@@ -129,6 +130,10 @@ class BadgeService:
             return validation
 
         try:
+            timestamp = self._parse_optional_datetime(data.get("timestamp"))
+            created_at = self._parse_optional_datetime(data.get("created_at"))
+            updated_at = self._parse_optional_datetime(data.get("updated_at"))
+
             badge = Badge(
                 badge_code=data.get("badge_code"),
                 action=data.get("action", "SCAN"),
@@ -140,6 +145,9 @@ class BadgeService:
                 device_id=data.get("device_id", ""),
                 raw_data=data.get("raw_data", {}),
                 processed=False,
+                timestamp=timestamp,
+                created_at=created_at,
+                updated_at=updated_at,
             )
 
             result = self.badge_repository.insert_badge(badge.to_mongo_dict())
@@ -171,6 +179,9 @@ class BadgeService:
                     else:
                         update_fields[field] = data[field]
 
+            if "timestamp" in data:
+                update_fields["timestamp"] = self._parse_optional_datetime(data.get("timestamp"))
+
             if not update_fields:
                 return error_response("No valid fields to update", 400)
 
@@ -186,6 +197,19 @@ class BadgeService:
         except Exception as e:
             self.log_repository.error(f"Error updating badge log {badge_id}: {e}")
             return error_response("Invalid badge ID or internal error", 400)
+
+    def _parse_optional_datetime(self, value):
+        if value in (None, ""):
+            return None
+        if isinstance(value, datetime):
+            return self._to_utc_naive(value)
+        parsed = DateHelper.parse_iso_date(str(value))
+        return self._to_utc_naive(parsed)
+
+    def _to_utc_naive(self, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
 
     def delete_badge_log(self, badge_id):
         try:

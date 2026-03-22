@@ -37,9 +37,10 @@ class Badge:
         self.device_id = device_id
         self.raw_data = raw_data or {}
         self.processed = processed
-        self.timestamp = timestamp or datetime.utcnow()
-        self.created_at = created_at or datetime.utcnow()
-        self.updated_at = updated_at or datetime.utcnow()
+        # Respect explicitly provided datetimes from the API or seed scripts.
+        self.timestamp = timestamp if timestamp is not None else datetime.utcnow()
+        self.created_at = created_at if created_at is not None else datetime.utcnow()
+        self.updated_at = updated_at if updated_at is not None else datetime.utcnow()
 
     @property
     def full_name(self) -> str:

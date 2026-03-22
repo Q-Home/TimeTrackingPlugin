@@ -317,11 +317,32 @@ function smartRound(val) {
   return (Math.round(Number(val || 0) * 10) / 10).toFixed(1);
 }
 
+function formatDurationHours(value, options = {}) {
+  const totalMinutes = Math.round(Number(value || 0) * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = Math.abs(totalMinutes % 60);
+  const compact = options.compact === true;
+
+  if (totalMinutes === 0) {
+    return compact ? "0u" : "0u 00m";
+  }
+
+  if (hours === 0) {
+    return compact ? `${minutes} min` : `0u ${String(minutes).padStart(2, "0")}m`;
+  }
+
+  if (minutes === 0) {
+    return compact ? `${hours}u` : `${hours}u 00m`;
+  }
+
+  return compact ? `${hours}u ${minutes}m` : `${hours}u ${String(minutes).padStart(2, "0")}m`;
+}
+
 function updateStatistics(summary) {
-  setText("total-hours", `${smartRound(summary.total_work_hours_decimal)}h`);
+  setText("total-hours", formatDurationHours(summary.total_work_hours_decimal));
   setText("working-days", summary.worked_days || 0);
-  setText("avg-hours", `${smartRound(summary.average_work_hours_per_worked_day)}h`);
-  setText("break-time", `${smartRound(summary.total_break_hours_decimal)}h`);
+  setText("avg-hours", formatDurationHours(summary.average_work_hours_per_worked_day));
+  setText("break-time", formatDurationHours(summary.total_break_hours_decimal));
   setText("last-updated", formatDateTime(new Date().toISOString()));
 }
 
@@ -407,6 +428,19 @@ function updateDailyHoursChart(days) {
         tooltip: {
           mode: "index",
           intersect: false,
+          callbacks: {
+            label(context) {
+              const label = context.dataset.label || "";
+              const value = Number(context.parsed.y || 0);
+              return `${label}: ${formatDurationHours(value)}`;
+            },
+          },
+        },
+        legend: {
+          labels: {
+            boxWidth: 18,
+            padding: 14,
+          },
         },
       },
       scales: {
@@ -416,6 +450,11 @@ function updateDailyHoursChart(days) {
         y: {
           stacked: true,
           beginAtZero: true,
+          ticks: {
+            callback(value) {
+              return formatDurationHours(value, { compact: true });
+            },
+          },
           title: {
             display: true,
             text: "Uren",
@@ -504,8 +543,8 @@ function updateTable(days) {
       <td>${escapeHtml(formatDayLabel(day.date))}</td>
       <td>${escapeHtml(firstStart || "-")}</td>
       <td>${escapeHtml(lastStop || "-")}</td>
-      <td>${smartRound(day.break_hours_decimal)}h</td>
-      <td><strong>${smartRound(day.work_hours_decimal)}h</strong></td>
+      <td>${escapeHtml(formatDurationHours(day.break_hours_decimal))}</td>
+      <td><strong>${escapeHtml(formatDurationHours(day.work_hours_decimal))}</strong></td>
       <td><span class="badge badge-${statusClass}">${escapeHtml(statusLabel)}</span></td>
     `;
 
@@ -631,8 +670,8 @@ function exportTimesheet() {
         `"${formatDayLabel(day.date).replace(/"/g, '""')}"`,
         `"${firstStart.replace(/"/g, '""')}"`,
         `"${lastStop.replace(/"/g, '""')}"`,
-        `"${smartRound(day.break_hours_decimal)}"`,
-        `"${smartRound(day.work_hours_decimal)}"`,
+        `"${formatDurationHours(day.break_hours_decimal)}"`,
+        `"${formatDurationHours(day.work_hours_decimal)}"`,
         `"${statusLabel.replace(/"/g, '""')}"`,
       ].join(",")
     );
