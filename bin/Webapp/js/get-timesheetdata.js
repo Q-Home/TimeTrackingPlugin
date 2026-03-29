@@ -14,6 +14,7 @@ let hoursBreakdownChart = null;
 const currentHost = window.location.hostname;
 const url = `http://${currentHost}:5000`;
 const apiUrl = `${url}/api/v1`;
+const displayTimeZone = "Europe/Brussels";
 
 document.addEventListener("DOMContentLoaded", function () {
   const token = localStorage.getItem("access_token");
@@ -401,7 +402,7 @@ function updateStatistics(summary) {
   setText("working-days", summary.worked_days || 0);
   setText("avg-hours", formatDurationHours(summary.average_work_hours_per_worked_day));
   setText("break-time", formatDurationHours(summary.total_break_hours_decimal));
-  setText("last-updated", formatDateTime(new Date().toISOString()));
+  setText("last-updated", formatDateTime(new Date()));
 }
 
 function updateCharts(days, summary) {
@@ -440,6 +441,7 @@ function updateDailyHoursChart(days) {
       weekday: "short",
       month: "short",
       day: "numeric",
+      timeZone: displayTimeZone,
     })
   );
 
@@ -619,6 +621,7 @@ function getFirstEventTime(events = [], actionName) {
   return new Date(found.timestamp).toLocaleTimeString("nl-NL", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: displayTimeZone,
   });
 }
 
@@ -630,6 +633,7 @@ function getLastEventTime(events = [], actionName) {
   return new Date(found.timestamp).toLocaleTimeString("nl-NL", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: displayTimeZone,
   });
 }
 
@@ -639,6 +643,7 @@ function formatDayLabel(dateString) {
     year: "numeric",
     month: "short",
     day: "numeric",
+    timeZone: displayTimeZone,
   });
 }
 
@@ -646,7 +651,9 @@ function formatDateTime(dateTimeString) {
   if (!dateTimeString) return "N/A";
 
   try {
-    return new Date(dateTimeString).toLocaleString("nl-NL");
+    return new Date(dateTimeString).toLocaleString("nl-NL", {
+      timeZone: displayTimeZone,
+    });
   } catch (e) {
     return dateTimeString;
   }

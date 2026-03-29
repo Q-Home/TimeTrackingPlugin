@@ -230,7 +230,7 @@ class UserService:
             self.log_repository.error(f"Error deleting user {username}: {e}")
             return error_response("Failed to delete user", 500)
 
-    def update_user_by_id(self, user_id, data):
+    def update_user_by_id(self, user_id, data, allow_privileged_fields=True):
         try:
             existing_user = self.user_repository.find_by_id(user_id)
             if not existing_user:
@@ -239,6 +239,10 @@ class UserService:
             new_username = data.get("username", existing_user.get("username", "")).strip()
             new_email = data.get("email", existing_user.get("email", "")).strip()
             new_badge_code = (data.get("badge_code", existing_user.get("badge_code", "")) or "").strip()
+
+            if not allow_privileged_fields:
+                new_username = existing_user.get("username", "")
+                new_badge_code = existing_user.get("badge_code", "")
 
             if len(new_username) < 3:
                 return error_response("Username must be at least 3 characters", 400)
@@ -263,12 +267,23 @@ class UserService:
                 return error_response("Badge code already exists", 400)
 
             role_value = data.get("user_role", data.get("role", existing_user.get("role", "user")))
+            if not allow_privileged_fields:
+                role_value = existing_user.get("role", "user")
             if role_value not in Roles.ALL:
                 return error_response("Invalid role", 400)
 
             extra_fields = data.get("extra_fields", {})
             if extra_fields is None:
                 extra_fields = {}
+            if not allow_privileged_fields:
+                extra_fields = {
+                    key: existing_user.get(key)
+                    for key in existing_user.keys()
+                    if key not in {
+                        "_id", "username", "first_name", "last_name", "company_name",
+                        "role", "email", "badge_code", "blocked", "password", "created_at", "updated_at"
+                    }
+                }
             if not isinstance(extra_fields, dict):
                 return error_response("Extra fields must be a JSON object", 400)
 
@@ -312,7 +327,7 @@ class UserService:
                 "email": new_email,
                 "badge_code": new_badge_code,
                 "role": role_value,
-                "blocked": data.get("blocked", existing_user.get("blocked", False)),
+                "blocked": data.get("blocked", existing_user.get("blocked", False)) if allow_privileged_fields else existing_user.get("blocked", False),
                 "updated_at": DateHelper.utc_now()
             }
 

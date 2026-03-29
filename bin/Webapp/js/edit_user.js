@@ -40,10 +40,11 @@ document.addEventListener("DOMContentLoaded", function () {
   if (!username) {
     console.error("No username provided in the URL.");
     notify("Geen gebruikersnaam gevonden in de URL.", "warning");
-    window.location.href = "/user-list.html";
+    window.location.href = role === "admin" ? "/user-list.html" : "/timesheet.html";
     return;
   }
 
+  configureAccountFormForRole();
   initializeBlockedStatusListeners();
   fetchUserData(username);
   bindEvents();
@@ -166,22 +167,17 @@ async function fetchUserData(targetUsername) {
 async function handleUserDataFormSubmit(event) {
   event.preventDefault();
 
-  if (role !== "admin") {
-    notify("Alleen admins mogen gebruikersgegevens wijzigen.", "warning");
-    return;
-  }
+  const currentUsername = (document.getElementById("uname")?.value || "").trim().toLowerCase();
+  const currentEmail = (document.getElementById("email")?.value || "").trim();
+  const currentBadgeCode = (document.getElementById("badgeCode")?.value || "").trim();
 
-    const currentUsername = (document.getElementById("uname")?.value || "").trim().toLowerCase();
-    const currentEmail = (document.getElementById("email")?.value || "").trim();
-    const currentBadgeCode = (document.getElementById("badgeCode")?.value || "").trim();
-
-    if (!currentUsername || !currentEmail) {
-      notify("Gebruikersnaam en e-mail mogen niet leeg zijn.", "warning");
+  if (!currentUsername || !currentEmail) {
+    notify("Gebruikersnaam en e-mail mogen niet leeg zijn.", "warning");
     return;
   }
 
   try {
-    if (currentUsername !== originalUsername) {
+    if (role === "admin" && currentUsername !== originalUsername) {
       const isUsernameTaken = await checkUsernameUnique(currentUsername);
       if (isUsernameTaken) {
         notify("Gebruikersnaam is al in gebruik.", "warning");
@@ -189,7 +185,7 @@ async function handleUserDataFormSubmit(event) {
       }
     }
 
-    if (currentEmail !== originalEmail) {
+    if (role === "admin" && currentEmail !== originalEmail) {
       const isEmailTaken = await checkEmailUnique(currentEmail);
       if (isEmailTaken) {
         notify("E-mailadres is al in gebruik.", "warning");
@@ -205,15 +201,15 @@ async function handleUserDataFormSubmit(event) {
     }
 
     const userData = {
-      username: currentUsername,
+      username: role === "admin" ? currentUsername : originalUsername,
       first_name: (document.getElementById("fname")?.value || "").trim(),
       last_name: (document.getElementById("lname")?.value || "").trim(),
       company_name: (document.getElementById("cname")?.value || "").trim(),
-      badge_code: currentBadgeCode,
+      badge_code: role === "admin" ? currentBadgeCode : "",
       email: currentEmail,
       user_role: roleSelect ? roleSelect.value : "user",
       blocked: blockedRadio ? blockedRadio.value === "true" : false,
-      extra_fields: extraFields,
+      extra_fields: role === "admin" ? extraFields : {},
     };
 
     const response = await fetch(`${apiUrl}/users/${encodeURIComponent(userId)}`, {
@@ -230,13 +226,15 @@ async function handleUserDataFormSubmit(event) {
       throw new Error(result.error || result.message || "Failed to update user data.");
     }
 
-    notify(result.message || "Gebruikersgegevens succesvol bijgewerkt.", "success");
+    notify(result.message || "Accountgegevens succesvol bijgewerkt.", "success");
 
-    originalUsername = currentUsername;
+    originalUsername = role === "admin" ? currentUsername : originalUsername;
     originalEmail = currentEmail;
-    originalExtraFields = extraFields;
+    originalExtraFields = role === "admin" ? extraFields : originalExtraFields;
 
-    window.location.href = "/user-list.html";
+    window.location.href = role === "admin"
+      ? "/user-list.html"
+      : `/timesheet.html?username=${encodeURIComponent(originalUsername)}`;
   } catch (error) {
     console.error("Error during user data submission:", error);
     notify(error.message || "Er is een fout opgetreden bij het opslaan.", "error");
@@ -293,11 +291,6 @@ async function checkEmailUnique(emailToCheck) {
 async function handlePasswordFormSubmit(event) {
   event.preventDefault();
 
-  if (role !== "admin") {
-    notify("Alleen admins mogen wachtwoorden wijzigen.", "warning");
-    return;
-  }
-
   const password = (document.getElementById("pass")?.value || "").trim();
   const repeatPassword = (document.getElementById("rpass")?.value || "").trim();
 
@@ -345,6 +338,19 @@ function setValue(id, value) {
   const element = document.getElementById(id);
   if (element) {
     element.value = value;
+  }
+}
+
+function configureAccountFormForRole() {
+  if (role === "admin") return;
+
+  document.getElementById("uname")?.setAttribute("readonly", "readonly");
+  document.getElementById("badgeCode")?.setAttribute("readonly", "readonly");
+  document.getElementById("extraFields")?.setAttribute("readonly", "readonly");
+
+  const backLink = document.getElementById("account-back-link");
+  if (backLink && username) {
+    backLink.setAttribute("href", `timesheet.html?username=${encodeURIComponent(username)}`);
   }
 }
 

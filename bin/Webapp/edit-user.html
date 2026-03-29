@@ -24,7 +24,7 @@
    <link rel="stylesheet" href="css/timetracking-ui.css">
 </head>
 
-<body data-page="edit-user" data-admin-page="true">
+<body data-page="edit-user">
    <!-- loader Start -->
    <div id="loading">
       <div id="loading-center">
@@ -51,11 +51,17 @@
                   <li data-admin-only>
                      <a href="dashboard.html"><i class="las la-tachometer-alt"></i><span>Dashboard</span></a>
                   </li>
-                  <li>
+                  <li data-admin-only>
                      <a href="badgelist.html"><i class="las la-id-card"></i><span>Badge Scans</span></a>
                   </li>
-                  <li class="active active-menu">
+                  <li class="active active-menu" data-admin-only>
                      <a href="user-list.html"><i class="las la-users"></i><span>Gebruikers</span></a>
+                  </li>
+                  <li data-user-only>
+                     <a href="timesheet.html"><i class="las la-clock"></i><span data-user-copy="timesheet-nav">Timesheet</span></a>
+                  </li>
+                  <li data-user-only class="active active-menu">
+                     <a href="edit-user.html"><i class="las la-user-cog"></i><span data-user-copy="account-nav">Account</span></a>
                   </li>
                </ul>
             </nav>
@@ -73,7 +79,8 @@
                         <p class="mb-0"><span class="text-primary">Beheer,</span> pas profielgegevens, status en wachtwoord aan.</p>
                      </div>
                      <div class="tt-page-actions">
-                        <a href="user-list.html" class="btn btn-outline-primary btn-sm"><i class="las la-arrow-left mr-1"></i>Terug naar lijst</a>
+                        <a href="user-list.html" class="btn btn-outline-primary btn-sm" data-admin-only><i class="las la-arrow-left mr-1"></i>Terug naar lijst</a>
+                        <a href="timesheet.html" class="btn btn-outline-primary btn-sm" data-user-only id="account-back-link"><i class="las la-arrow-left mr-1"></i>Terug naar mijn timesheet</a>
                      </div>
                   </div>
                </div>

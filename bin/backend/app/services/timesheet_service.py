@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from app.models.badge import Badge
+from app.utils.date_helper import DateHelper
 
 
 class TimesheetService:
@@ -26,7 +27,7 @@ class TimesheetService:
         for log_doc in badge_logs:
             badge = Badge.from_mongo(log_doc)
             action = self._normalize_action(badge.action)
-            timestamp = badge.timestamp
+            timestamp = DateHelper.to_belgian_time(badge.timestamp)
 
             if action not in self.VALID_ACTIONS:
                 continue
@@ -97,8 +98,7 @@ class TimesheetService:
         return self.ACTION_ALIASES.get(normalized, normalized)
 
     def get_user_timesheet_for_day(self, username: str, day: datetime):
-        start_of_day = datetime(day.year, day.month, day.day, 0, 0, 0, 0)
-        end_of_day = datetime(day.year, day.month, day.day, 23, 59, 59, 999999)
+        start_of_day, end_of_day = DateHelper.belgian_day_bounds_to_utc_naive(day)
 
         logs = self.badge_repository.find_badges_for_user_and_range(
             username=username,
@@ -116,10 +116,14 @@ class TimesheetService:
         }
 
     def get_user_timesheet_for_range(self, username: str, start_date: datetime, end_date: datetime):
+        query_start, query_end = (
+            DateHelper.belgian_day_bounds_to_utc_naive(start_date)[0],
+            DateHelper.belgian_day_bounds_to_utc_naive(end_date)[1],
+        )
         logs = self.badge_repository.find_badges_for_user_and_range(
             username=username,
-            start_date=start_date,
-            end_date=end_date
+            start_date=query_start,
+            end_date=query_end
         )
 
         grouped_by_day = {}
@@ -129,7 +133,8 @@ class TimesheetService:
             if not badge.timestamp:
                 continue
 
-            date_key = badge.timestamp.strftime("%Y-%m-%d")
+            local_timestamp = DateHelper.to_belgian_time(badge.timestamp)
+            date_key = local_timestamp.strftime("%Y-%m-%d")
 
             if date_key not in grouped_by_day:
                 grouped_by_day[date_key] = []

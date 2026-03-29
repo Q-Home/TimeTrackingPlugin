@@ -1,5 +1,5 @@
 from bson.objectid import ObjectId
-from datetime import datetime, timezone
+from datetime import datetime
 from app.models.badge import Badge
 from app.validators.badge_validator import BadgeValidator
 from app.utils.response import success_response, error_response
@@ -202,14 +202,9 @@ class BadgeService:
         if value in (None, ""):
             return None
         if isinstance(value, datetime):
-            return self._to_utc_naive(value)
+            return DateHelper.to_utc_naive(value)
         parsed = DateHelper.parse_iso_date(str(value))
-        return self._to_utc_naive(parsed)
-
-    def _to_utc_naive(self, value: datetime) -> datetime:
-        if value.tzinfo is None:
-            return value
-        return value.astimezone(timezone.utc).replace(tzinfo=None)
+        return DateHelper.to_utc_naive(parsed)
 
     def delete_badge_log(self, badge_id):
         try:

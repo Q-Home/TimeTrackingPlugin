@@ -64,6 +64,11 @@
       element.classList.add("d-none");
     });
 
+    document.querySelectorAll("[data-user-only]").forEach((element) => {
+      if (shell.role !== "admin") return;
+      element.classList.add("d-none");
+    });
+
     document.querySelectorAll("[data-user-copy]").forEach((element) => {
       const copyType = element.getAttribute("data-user-copy");
       if (shell.role === "admin") return;
@@ -74,12 +79,24 @@
         if (parentLink && shell.username) {
           parentLink.setAttribute("href", `timesheet.html?username=${encodeURIComponent(shell.username)}`);
         }
+      } else if (copyType === "account-nav") {
+        element.textContent = "Mijn account";
+        const parentLink = element.closest("a");
+        if (parentLink && shell.username) {
+          parentLink.setAttribute("href", `edit-user.html?username=${encodeURIComponent(shell.username)}`);
+        }
       }
     });
   }
 
   function applyProfileBox() {
     updateText("js-nametag", shell.username ? `Hallo ${shell.username}` : "Welkom");
+
+    if (shell.role !== "admin" && shell.username) {
+      document.querySelectorAll(".tt-shell-brand").forEach((brandLink) => {
+        brandLink.setAttribute("href", `timesheet.html?username=${encodeURIComponent(shell.username)}`);
+      });
+    }
 
     const editUserLink = document.getElementById("editUserLink");
     if (editUserLink && shell.username) {
