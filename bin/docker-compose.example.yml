@@ -20,14 +20,11 @@ services:
     depends_on:
       - mongodb
     environment:
-      # MongoDB configuratie ZONDER authenticatie - alleen database naam
       - MONGO_URI=${MONGO_URI}
       - MONGO_HOST=${MONGO_HOST}
       - MONGO_PORT=${MONGO_PORT}
       - MONGO_DB_NAME=${MONGO_DB_NAME}
       - MONGO_COLLECTION_NAME=${MONGO_COLLECTION_NAME}
-
-      # MQTT configuratie
       - MQTT_BROKER=${MQTT_BROKER}
       - MQTT_PORT=${MQTT_PORT}
       - MQTT_TOPIC=${MQTT_TOPIC}
@@ -55,7 +52,6 @@ services:
     ports:
       - "5000:5000"
     environment:
-      # MongoDB URI ZONDER authenticatie
       - MONGO_URI=${MONGO_URI}
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
@@ -76,7 +72,6 @@ services:
       dockerfile: dockerfile
     container_name: webapp
     environment:
-      # MongoDB URI ZONDER authenticatie
       - URI=${WEBAPP_BACKEND_URI}
     depends_on:
       - mongodb

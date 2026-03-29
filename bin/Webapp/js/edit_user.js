@@ -10,11 +10,26 @@ const apiUrl = `${url}/api/v1`;
 let originalUsername = "";
 let originalEmail = "";
 let userId = "";
+let originalExtraFields = {};
 
 const blockedStatusRadios = document.querySelectorAll('input[name="blockedStatus"]');
 const profilePic = document.getElementById("profilePic");
 const userDataSubmitButton = document.querySelector(".change-info-btn");
 const passwordSubmitButton = document.querySelector(".change-password-btn");
+const feedback = document.getElementById("app-form-feedback");
+
+function notify(message, type = "info") {
+  if (feedback) {
+    feedback.innerHTML = `<div class="alert alert-${type === "error" ? "danger" : type}" role="alert">${message}</div>`;
+  }
+
+  if (window.appShell?.showNotice) {
+    window.appShell.showNotice(message, type);
+    return;
+  }
+
+  alert(message);
+}
 
 document.addEventListener("DOMContentLoaded", function () {
   if (!token) {
@@ -24,8 +39,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (!username) {
     console.error("No username provided in the URL.");
-    alert("Geen gebruikersnaam gevonden in de URL.");
-    window.location.href = "/users-list.html";
+    notify("Geen gebruikersnaam gevonden in de URL.", "warning");
+    window.location.href = "/user-list.html";
     return;
   }
 
@@ -56,7 +71,7 @@ function handleAuthError(response) {
   }
 
   if (response.status === 403) {
-    alert("Geen toegang.");
+    notify("Geen toegang.", "warning");
     return true;
   }
 
@@ -108,12 +123,18 @@ async function fetchUserData(targetUsername) {
     originalUsername = data.username || "";
     originalEmail = data.email || "";
     userId = data.user_id || "";
+    originalExtraFields = data.extra_fields || {};
 
+    setValue("userId", userId);
+    setValue("createdAt", formatDateValue(data.created_at));
+    setValue("updatedAt", formatDateValue(data.updated_at));
     setValue("uname", originalUsername);
     setValue("fname", data.first_name || "");
     setValue("lname", data.last_name || "");
     setValue("cname", data.company_name || "");
+    setValue("badgeCode", data.badge_code || "");
     setValue("email", originalEmail);
+    setValue("extraFields", JSON.stringify(originalExtraFields, null, 2));
 
     const roleSelect = document.getElementById("selectuserrole");
     if (roleSelect) {
@@ -138,7 +159,7 @@ async function fetchUserData(targetUsername) {
     }
   } catch (error) {
     console.error("Error fetching user data:", error);
-    alert(`Kon gebruikersgegevens niet ophalen: ${error.message}`);
+    notify(`Kon gebruikersgegevens niet ophalen: ${error.message}`, "error");
   }
 }
 
@@ -146,15 +167,16 @@ async function handleUserDataFormSubmit(event) {
   event.preventDefault();
 
   if (role !== "admin") {
-    alert("Alleen admins mogen gebruikersgegevens wijzigen.");
+    notify("Alleen admins mogen gebruikersgegevens wijzigen.", "warning");
     return;
   }
 
-  const currentUsername = (document.getElementById("uname")?.value || "").trim().toLowerCase();
-  const currentEmail = (document.getElementById("email")?.value || "").trim();
+    const currentUsername = (document.getElementById("uname")?.value || "").trim().toLowerCase();
+    const currentEmail = (document.getElementById("email")?.value || "").trim();
+    const currentBadgeCode = (document.getElementById("badgeCode")?.value || "").trim();
 
-  if (!currentUsername || !currentEmail) {
-    alert("Gebruikersnaam en e-mail mogen niet leeg zijn.");
+    if (!currentUsername || !currentEmail) {
+      notify("Gebruikersnaam en e-mail mogen niet leeg zijn.", "warning");
     return;
   }
 
@@ -162,7 +184,7 @@ async function handleUserDataFormSubmit(event) {
     if (currentUsername !== originalUsername) {
       const isUsernameTaken = await checkUsernameUnique(currentUsername);
       if (isUsernameTaken) {
-        alert("Gebruikersnaam is al in gebruik.");
+        notify("Gebruikersnaam is al in gebruik.", "warning");
         return;
       }
     }
@@ -170,22 +192,28 @@ async function handleUserDataFormSubmit(event) {
     if (currentEmail !== originalEmail) {
       const isEmailTaken = await checkEmailUnique(currentEmail);
       if (isEmailTaken) {
-        alert("E-mailadres is al in gebruik.");
+        notify("E-mailadres is al in gebruik.", "warning");
         return;
       }
     }
 
     const roleSelect = document.getElementById("selectuserrole");
     const blockedRadio = document.querySelector('input[name="blockedStatus"]:checked');
+    const extraFields = parseExtraFields();
+    if (extraFields === null) {
+      return;
+    }
 
     const userData = {
       username: currentUsername,
       first_name: (document.getElementById("fname")?.value || "").trim(),
       last_name: (document.getElementById("lname")?.value || "").trim(),
       company_name: (document.getElementById("cname")?.value || "").trim(),
+      badge_code: currentBadgeCode,
       email: currentEmail,
       user_role: roleSelect ? roleSelect.value : "user",
       blocked: blockedRadio ? blockedRadio.value === "true" : false,
+      extra_fields: extraFields,
     };
 
     const response = await fetch(`${apiUrl}/users/${encodeURIComponent(userId)}`, {
@@ -202,15 +230,16 @@ async function handleUserDataFormSubmit(event) {
       throw new Error(result.error || result.message || "Failed to update user data.");
     }
 
-    alert(result.message || "Gebruikersgegevens succesvol bijgewerkt.");
+    notify(result.message || "Gebruikersgegevens succesvol bijgewerkt.", "success");
 
     originalUsername = currentUsername;
     originalEmail = currentEmail;
+    originalExtraFields = extraFields;
 
-    window.location.href = "/users-list.html";
+    window.location.href = "/user-list.html";
   } catch (error) {
     console.error("Error during user data submission:", error);
-    alert(error.message || "Er is een fout opgetreden bij het opslaan.");
+    notify(error.message || "Er is een fout opgetreden bij het opslaan.", "error");
   }
 }
 
@@ -265,7 +294,7 @@ async function handlePasswordFormSubmit(event) {
   event.preventDefault();
 
   if (role !== "admin") {
-    alert("Alleen admins mogen wachtwoorden wijzigen.");
+    notify("Alleen admins mogen wachtwoorden wijzigen.", "warning");
     return;
   }
 
@@ -273,17 +302,17 @@ async function handlePasswordFormSubmit(event) {
   const repeatPassword = (document.getElementById("rpass")?.value || "").trim();
 
   if (!password || !repeatPassword) {
-    alert("Wachtwoordvelden mogen niet leeg zijn.");
+    notify("Wachtwoordvelden mogen niet leeg zijn.", "warning");
     return;
   }
 
   if (password.length < 6) {
-    alert("Wachtwoord moet minstens 6 tekens bevatten.");
+    notify("Wachtwoord moet minstens 6 tekens bevatten.", "warning");
     return;
   }
 
   if (password !== repeatPassword) {
-    alert("Wachtwoorden komen niet overeen.");
+    notify("Wachtwoorden komen niet overeen.", "warning");
     return;
   }
 
@@ -302,13 +331,13 @@ async function handlePasswordFormSubmit(event) {
       throw new Error(result.error || result.message || "Failed to update password.");
     }
 
-    alert(result.message || "Wachtwoord succesvol bijgewerkt.");
+    notify(result.message || "Wachtwoord succesvol bijgewerkt.", "success");
 
     setValue("pass", "");
     setValue("rpass", "");
   } catch (error) {
     console.error("Error updating password:", error);
-    alert(error.message || "Er is een fout opgetreden bij het wijzigen van het wachtwoord.");
+    notify(error.message || "Er is een fout opgetreden bij het wijzigen van het wachtwoord.", "error");
   }
 }
 
@@ -316,5 +345,40 @@ function setValue(id, value) {
   const element = document.getElementById(id);
   if (element) {
     element.value = value;
+  }
+}
+
+function parseExtraFields() {
+  const rawValue = document.getElementById("extraFields")?.value?.trim() || "";
+  if (!rawValue) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
+      notify("Extra databasevelden moeten een geldig JSON-object zijn.", "warning");
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    notify("Extra databasevelden bevatten ongeldige JSON.", "warning");
+    return null;
+  }
+}
+
+function formatDateValue(value) {
+  if (!value) {
+    return "";
+  }
+
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    return date.toLocaleString("nl-BE");
+  } catch (error) {
+    return value;
   }
 }

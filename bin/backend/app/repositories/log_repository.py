@@ -20,3 +20,11 @@ class LogRepository:
 
     def error(self, message: str):
         self.insert_log(message, "Error")
+
+    def find_all(self, limit: int = 500):
+        return list(
+            self.mongo.db["logs"]
+            .find({})
+            .sort("timestamp", -1)
+            .limit(limit)
+        )

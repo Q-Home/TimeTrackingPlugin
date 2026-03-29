@@ -31,6 +31,15 @@ function authHeaders(includeJson = true) {
   return headers;
 }
 
+function notify(message, type = "info") {
+  if (window.appShell?.showNotice) {
+    window.appShell.showNotice(message, type);
+    return;
+  }
+
+  alert(message);
+}
+
 function handleAuthError(response) {
   if (response.status === 401) {
     localStorage.removeItem("access_token");
@@ -41,7 +50,7 @@ function handleAuthError(response) {
   }
 
   if (response.status === 403) {
-    alert("Geen toegang.");
+    notify("Geen toegang.", "warning");
     return true;
   }
 
@@ -394,7 +403,7 @@ function applyDayFilter() {
     currentPage = 1;
     fetchBadges({ ...filters, day: dayNumber });
   } else {
-    alert("Ongeldige dag. Gebruik een getal tussen 1 en 31.");
+    notify("Ongeldige dag. Gebruik een getal tussen 1 en 31.", "warning");
   }
 }
 
@@ -420,7 +429,7 @@ function applyMonthFilter() {
     currentPage = 1;
     fetchBadges({ ...filters, month: monthNumber });
   } else {
-    alert("Ongeldige maand. Gebruik een getal tussen 1 en 12.");
+    notify("Ongeldige maand. Gebruik een getal tussen 1 en 12.", "warning");
   }
 }
 
@@ -536,7 +545,7 @@ function clearError() {
 
 function exportToCSV() {
   if (!badgeData || badgeData.length === 0) {
-    alert("Geen data om te exporteren. Laad eerst badge data.");
+    notify("Geen data om te exporteren. Laad eerst badge data.", "warning");
     return;
   }
 
@@ -577,13 +586,13 @@ function exportToCSV() {
     showExportSuccess(`Exported ${badgeData.length} records to ${filename}`);
   } catch (error) {
     console.error("Error exporting CSV:", error);
-    alert("Error exporting CSV: " + error.message);
+    notify("Fout bij exporteren van CSV: " + error.message, "error");
   }
 }
 
 function exportToCSVWithFilters() {
   if (!badgeData || badgeData.length === 0) {
-    alert("Geen data om te exporteren. Laad eerst badge data.");
+    notify("Geen data om te exporteren. Laad eerst badge data.", "warning");
     return;
   }
 
@@ -641,7 +650,7 @@ function exportToCSVWithFilters() {
     showExportSuccess(`Exported ${badgeData.length} records${filterInfo} to ${filename}`);
   } catch (error) {
     console.error("Error exporting CSV:", error);
-    alert("Error exporting CSV: " + error.message);
+    notify("Fout bij exporteren van CSV: " + error.message, "error");
   }
 }
 

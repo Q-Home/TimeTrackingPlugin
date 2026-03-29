@@ -552,8 +552,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--base-url",
-        default="http://192.168.68.50:5000",
-        help="Base URL of the backend API, e.g. http://192.168.68.50:5000",
+        default="http://localhost:5000",
+        help="Base URL of the backend API, e.g. http://localhost:5000",
     )
     parser.add_argument(
         "--admin-username",
@@ -596,7 +596,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--mongo-uri",
         default=None,
-        help="MongoDB URI for direct writes, e.g. mongodb://192.168.68.50:27017/timetracking",
+        help="MongoDB URI for direct writes, e.g. mongodb://localhost:27017/timetracking",
     )
     return parser.parse_args()
 

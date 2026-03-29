@@ -5,6 +5,11 @@ from datetime import timedelta
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "change_me")
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change_me_too")
+    INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "")
+    INTERNAL_TRUSTED_SUBNETS = os.getenv(
+        "INTERNAL_TRUSTED_SUBNETS",
+        "127.0.0.1/32,::1/128,172.17.0.0/16,172.28.0.0/16",
+    )
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(
         hours=int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES_HOURS", "12"))
     )

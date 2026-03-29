@@ -1,6 +1,12 @@
 document.addEventListener("DOMContentLoaded", function () {
   const hostname = window.location.hostname;
   const url = `http://${hostname}:5000`;
+  const loginError = document.getElementById("loginError");
+  const loadingOverlay = document.getElementById("loading");
+
+  if (loadingOverlay) {
+    loadingOverlay.style.display = "none";
+  }
 
   console.debug("URL voor API:", url);
   console.debug("Document is geladen, event listeners worden ingesteld.");
@@ -12,8 +18,28 @@ document.addEventListener("DOMContentLoaded", function () {
     return;
   }
 
+  function showLoginError(message) {
+    if (!loginError) {
+      alert(message);
+      return;
+    }
+
+    loginError.textContent = message;
+    loginError.style.display = "block";
+  }
+
+  function clearLoginError() {
+    if (!loginError) {
+      return;
+    }
+
+    loginError.textContent = "";
+    loginError.style.display = "none";
+  }
+
   loginForm.addEventListener("submit", async function (event) {
     event.preventDefault();
+    clearLoginError();
 
     const usernameOrEmail = document.getElementById("username").value.trim();
     const password = document.getElementById("password").value.trim();
@@ -24,7 +50,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     if (!usernameOrEmail || !password) {
-      alert("Gebruikersnaam/e-mail en wachtwoord mogen niet leeg zijn.");
+      showLoginError("Gebruikersnaam en wachtwoord mogen niet leeg zijn.");
       return;
     }
 
@@ -59,12 +85,15 @@ document.addEventListener("DOMContentLoaded", function () {
         localStorage.setItem("role", role);
 
         console.log("Ingelogd als:", username, "met rol:", role);
-        window.location.href = "/badgelist.html";
+        if (String(role).toLowerCase() === "admin") {
+          window.location.href = "/dashboard.html";
+        } else {
+          window.location.href = `/timesheet.html?username=${encodeURIComponent(username)}`;
+        }
       } else if (response.status === 401) {
-        alert(responseData.error || "Onjuiste inloggegevens. Probeer het opnieuw.");
+        showLoginError(responseData.error || "Onjuiste inloggegevens. Probeer het opnieuw.");
       } else if (response.status === 403) {
-        alert(responseData.error || "Uw account is geblokkeerd of u heeft geen toegang.");
-        window.location.href = "/index.html";
+        showLoginError(responseData.error || "Uw account is geblokkeerd of u heeft geen toegang.");
       } else if (response.status === 500) {
         window.location.href = "/pages-error-500.html";
       } else {
@@ -72,7 +101,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     } catch (error) {
       console.error("Fout tijdens het inloggen:", error);
-      window.location.href = "/pages-error-500.html";
+      showLoginError("De loginservice is momenteel niet bereikbaar. Probeer het straks opnieuw.");
     }
   });
 });

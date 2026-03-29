@@ -1,279 +1,185 @@
-document.addEventListener("DOMContentLoaded", async () => {
-  const apiUrl = 'http://192.168.88.100:5000/api/v1'; // Basis-URL van de backend
-  let cpuData = []; // Opslag voor CPU-gebruik per tijd
-  let ramData = []; // Opslag voor RAM-gebruik per tijd
-  let netUploadData = []; // Opslag voor CPU-gebruik per tijd
-  let netDownloadData = []; // Opslag voor RAM-gebruik per tijd
-  let timestampData = []; // Opslag voor tijdstempels
+const dashboardHost = window.location.hostname;
+const dashboardApiUrl = `http://${dashboardHost}:5000/api/v1`;
 
-  // Haal online robots op
-  async function fetchOnlineRobots() {
-    try {
-      const response = await fetch(`${apiUrl}/robots/online`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch online robots.");
-      }
-      const robots = await response.json();
-      console.log("Online robots:", robots);
-      updateOnlineRobots(robots);
-      updateRobotCount(robots.length); // Update het aantal robots
-    } catch (error) {
-      console.error("Error fetching online robots:", error);
-    }
-  }
-  // Update het aantal online robots
-  function updateRobotCount(count) {
-    const robotCountElement = document.getElementById("robots");
-    if (robotCountElement) {
-      robotCountElement.textContent = count; // Toon het aantal robots
-    }
+document.addEventListener("DOMContentLoaded", function () {
+  const token = localStorage.getItem("access_token");
+  const role = (localStorage.getItem("role") || "").toLowerCase();
+
+  if (!token) {
+    window.location.href = "/index.html";
+    return;
   }
 
-  // Update online robots in de HTML
-  function updateOnlineRobots(robots) {
-    const container = document.querySelector(".row.content-body > .col-lg-12");
-    container.innerHTML = ""; // Reset de inhoud
-
-    robots.forEach((robot) => {
-      const robotCard = `
-          <div class="col-sm-6 col-md-6 col-lg-3">
-            <div class="iq-card iq-card-block iq-card-stretch iq-card-height">
-              <div class="iq-card-body">
-                <div class="text-center">
-                  <img src="images/${robot.robot_type.toLowerCase()}.png" alt="${robot.type}" style="height: 200px;">
-                </div>
-                <div class="mt-4">
-                  <h4 class="text-black text-uppercase">${robot.nickname}</h4>
-                  <h5 class="text-black text-uppercase">${robot.mac_address}</h5>
-                </div>
-                <div class="text-right" style="margin-top: 20px;">
-                  <a href="robot-page.html?mac=${encodeURIComponent(robot.mac_address)}" class="btn btn-primary">Meer info</a>
-                </div>
-              </div>
-            </div>
-          </div>
-        `;
-      container.insertAdjacentHTML("beforeend", robotCard);
-    });
+  if (role !== "admin") {
+    const username = localStorage.getItem("username");
+    window.location.href = username
+      ? `/timesheet.html?username=${encodeURIComponent(username)}`
+      : "/index.html";
+    return;
   }
 
-  // Haal serverstatistieken op
-  async function fetchServerStats() {
-    try {
-        const response = await fetch(`${apiUrl}/server-stats/`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch server stats.");
-        }
-        const stats = await response.json();
-        updateServerStats(stats);
-      } catch (error) {
-        console.error("Error fetching server stats:", error);
-      }
-    try {
-      const response = await fetch(`${apiUrl}/server-stats/all/`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch server stats.");
-      }
-      const stats = await response.json();
-      
-      updateCharts(stats); // Update grafieken met de opgehaalde stats
-    } catch (error) {
-      console.error("Error fetching server stats:", error);
-    }
-  }
-
-  // Update serverstatistieken in de HTML
-  function updateServerStats(stats) {
-    // CPU-statistieken bijwerken
-    document.querySelector("#cpu-usage").textContent = `${stats.cpu}%`; // Laat alleen de eerste stat zien
-    document.querySelector("#cpu-progress-span").style.width = `${stats.cpu}%`;
-
-    // RAM-statistieken bijwerken
-    document.querySelector("#ram-usage").textContent = `${stats.ram}%`; // Laat alleen de eerste stat zien
-    document.querySelector("#ram-progress-span").style.width = `${stats.ram}%`;
-
-    // Schijfstatistieken bijwerken
-    document.querySelector("#disk-usage").textContent = `${stats.disk}GB`;
-    document.querySelector("#disk-progress-span").style.width = `${stats.disk_usage}%`;
-
-    // Services-statistieken bijwerken
-    document.querySelector("#services-usage").textContent = `${stats.net_upload_speed} KB/s`;
-    document.querySelector("#services-progress-span").style.width = `${stats.net_upload_speed}%`;
-  }
-
-  // Haal de server-statistieken op en werk de grafieken bij
-  async function fetchServerStatsPeriodically() {
-    try {
-      const response = await fetch("http://127.0.0.1:5000/api/v1/server-stats/all/");
-      if (!response.ok) {
-        throw new Error("Failed to fetch server stats.");
-      }
-      const stats = await response.json();
-
-      // Werk de grafieken bij met de nieuwe data
-      updateCharts(stats);
-    } catch (error) {
-      console.error("Error fetching server stats:", error);
-    }
-  }
-
-  function updateCharts(stats) {
-    // Log de ontvangen serverstatistieken
-    // Log de ontvangen serverstatistieken
-    console.log("Fetched server stats:", stats);
-
-    // Controleer of we een array hebben ontvangen
-    if (stats && Array.isArray(stats)) {
-      // Voeg de nieuwe waarden toe aan de respectieve arrays
-      stats.forEach((stat) => {
-        cpuData.push(stat.cpu); // Voeg CPU-gebruik toe
-        ramData.push(stat.ram); // Voeg RAM-gebruik toe
-        netUploadData.push(stat.net_upload_speed); // Voeg net_upload_speed toe
-        netDownloadData.push(stat.net_download_speed); // Voeg net_download_speed toe
-        timestampData.push(formatTimestamp(new Date(stat.timestamp))); // Voeg tijdstempel toe
-      });
-
-      // Limiteer het aantal weergegeven datapunten tot de laatste 10 minuten
-      if (cpuData.length > 10) {
-        cpuData.shift(); // Verwijder de oudste CPU-data
-        ramData.shift(); // Verwijder de oudste RAM-data
-        netUploadData.shift(); // Verwijder de oudste net_upload_speed data
-        netDownloadData.shift(); // Verwijder de oudste net_download_speed data
-        timestampData.shift(); // Verwijder de oudste tijdstempel
-      }
-
-      // Verwijder dubbele tijdstempels door een Set te gebruiken
-      const uniqueTimestamps = [...new Set(timestampData)];
-
-      // Beperk de categorieën op de X-as tot maximaal 10 en unieke tijdstempels
-      const xAxisCategories = uniqueTimestamps.slice(-10); // Beperk tot de laatste 10 unieke tijdstempels
-
-      // Maak een filterfunctie om de juiste CPU, RAM, net_upload_speed en net_download_speed te verkrijgen die overeenkomen met de unieke tijdstempels
-      const filteredCpuData = [];
-      const filteredRamData = [];
-      const filteredNetUploadData = [];
-      const filteredNetDownloadData = [];
-
-      // Filter de CPU, RAM, net_upload_speed en net_download_speed gegevens op basis van de unieke tijdstempels
-      xAxisCategories.forEach((timestamp) => {
-        const index = timestampData.indexOf(timestamp); // Zoek de index van de tijdstempel
-        if (index !== -1) {
-          filteredCpuData.push(cpuData[index]); // Voeg de bijbehorende CPU waarde toe
-          filteredRamData.push(ramData[index]); // Voeg de bijbehorende RAM waarde toe
-          filteredNetUploadData.push(netUploadData[index]); // Voeg de bijbehorende net_upload_speed waarde toe
-          filteredNetDownloadData.push(netDownloadData[index]); // Voeg de bijbehorende net_download_speed waarde toe
-        }
-      });
-
-      // Line Chart voor CPU en RAM (met de gefilterde gegevens)
-      var optionsLineChart = {
-        chart: {
-          height: 350,
-          type: "line",
-          zoom: { enabled: false },
-        },
-        colors: ["#4e37b2", "#ff6347"], // Kleuren voor de grafieken
-        series: [
-          {
-            name: "CPU Usage",
-            data: filteredCpuData, // Gebruik de gefilterde CPU-data
-          },
-          {
-            name: "RAM Usage",
-            data: filteredRamData, // Gebruik de gefilterde RAM-data
-          },
-        ],
-        dataLabels: { enabled: false },
-        stroke: { curve: "smooth" },
-        grid: {
-          row: {
-            colors: ["#f3f3f3", "transparent"],
-            opacity: 0.5,
-          },
-        },
-        xaxis: {
-          categories: xAxisCategories, // Beperk de categorieën op de X-as tot de laatste 10 unieke tijdstempels
-        },
-        yaxis: {
-          title: {
-            text: "Usage (%)", // Voeg hier een titel toe voor de Y-as, zoals "CPU/RAM Usage"
-          },
-          labels: {
-            formatter: function (value) {
-              return `${value}%`; // Voeg een percentage toe aan de Y-as labels
-            },
-          },
-        },
-      };
-
-      var chartLine = new ApexCharts(document.querySelector("#apex-basic"), optionsLineChart);
-      chartLine.render();
-
-      // Line Chart voor net_upload_speed en net_download_speed (met de gefilterde gegevens)
-      var optionsLineChart2 = {
-        chart: {
-          height: 350,
-          type: "line",
-          zoom: { enabled: false },
-        },
-        colors: ["#28a745", "#dc3545"], // Kleuren voor de grafieken
-        series: [
-          {
-            name: "Net Upload Speed",
-            data: filteredNetUploadData, // Gebruik de gefilterde net_upload_speed data
-          },
-          {
-            name: "Net Download Speed",
-            data: filteredNetDownloadData, // Gebruik de gefilterde net_download_speed data
-          },
-        ],
-        dataLabels: { enabled: false },
-        stroke: { curve: "smooth" },
-    
-        grid: {
-          row: {
-            colors: ["#f3f3f3", "transparent"],
-            opacity: 0.5,
-          },
-        },
-        xaxis: {
-          categories: xAxisCategories, // Beperk de categorieën op de X-as tot de laatste 10 unieke tijdstempels
-        },
-        yaxis: {
-          title: {
-            text: "Speed (KB/s)", // Voeg hier een titel toe voor de Y-as, zoals "Net Speed"
-          },
-          labels: {
-            formatter: function (value) {
-              return `${value.toFixed(2)} KB/s`; // Voeg een eenheid toe aan de Y-as labels
-            },
-          },
-        },
-      };
-
-      var chartLine2 = new ApexCharts(document.querySelector("#apex2"), optionsLineChart2);
-      chartLine2.render();
-    } else {
-      console.error("Expected an array but received:", stats);
-    }
-  }
-
-  function formatTimestamp(date) {
-    // Verkrijg de minuten als het dichtstbijzijnde veelvoud van 10
-    const minutes = date.getMinutes();
-    const roundedMinutes = Math.floor(minutes / 10) * 10; // Rond af naar het dichtstbijzijnde veelvoud van 10
-
-    // Zet de minuten naar het afgeronde veelvoud van 10 en zet seconden en milliseconden naar 0
-    date.setMinutes(roundedMinutes, 0, 0);
-
-    // Formatteer de tijd naar "HH:MM"
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  }
-
-  // Verzamel gegevens elke 10 minuten (600 seconden)
-  setInterval(fetchServerStatsPeriodically, 10 * 60 * 1000); // 10 minuten = 10 * 60 * 1000 milliseconden
-
-  // Haal serverstatistieken op en werk grafieken bij
-  await fetchServerStats(); // Haal serverstatistieken op
-  await fetchOnlineRobots(); // Haal online robots op
+  document.getElementById("dashboardRefreshBtn")?.addEventListener("click", loadDashboardSummary);
+  loadDashboardSummary();
 });
+
+async function loadDashboardSummary() {
+  try {
+    const response = await fetch(`${dashboardApiUrl}/dashboard/summary`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+      },
+    });
+
+    if (response.status === 401) {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("username");
+      localStorage.removeItem("role");
+      window.location.href = "/index.html";
+      return;
+    }
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || result.message || `HTTP ${response.status}`);
+    }
+
+    const data = result?.data || {};
+    renderStats(data.stats || {});
+    renderPresenceList(data.people_in_building || []);
+    renderRecentActivity(data.recent_activity || []);
+    renderLocations(data.locations || []);
+  } catch (error) {
+    window.appShell?.showNotice(`Dashboard kon niet geladen worden: ${error.message}`, "error");
+  }
+}
+
+function renderStats(stats) {
+  setText("stat-present-now", stats.present_now ?? 0);
+  setText("stat-on-break", stats.on_break_now ?? 0);
+  setText("stat-active-today", stats.active_today ?? 0);
+  setText("stat-occupancy-rate", stats.occupancy_rate ?? 0);
+  setText("stat-scans-today", stats.scans_today ?? 0);
+  setText("stat-starts-today", stats.starts_today ?? 0);
+  setText("stat-stops-today", stats.stops_today ?? 0);
+  setText("stat-last-hour", stats.scans_last_hour ?? 0);
+}
+
+function renderPresenceList(people) {
+  const container = document.getElementById("dashboard-presence-list");
+  if (!container) return;
+
+  if (people.length === 0) {
+    container.innerHTML = `
+      <div class="tt-empty-state">
+        <i class="las la-door-closed"></i>
+        <h5>Niemand aanwezig</h5>
+        <p>Er is momenteel niemand in het gebouw volgens de badge-events.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = people.map((person) => `
+    <article class="tt-dashboard-item">
+      <div>
+        <h5>${escapeHtml(person.display_name || person.username || "Onbekend")}</h5>
+        <p>${escapeHtml(person.location || "Onbekende locatie")} - ${formatStatus(person.status)}</p>
+      </div>
+      <div class="text-right">
+        <span class="badge badge-${person.status === "on_break" ? "warning" : "success"}">${formatStatus(person.status)}</span>
+        <small>${formatDateTime(person.last_seen)}</small>
+      </div>
+    </article>
+  `).join("");
+}
+
+function renderRecentActivity(events) {
+  const container = document.getElementById("dashboard-recent-activity");
+  if (!container) return;
+
+  if (events.length === 0) {
+    container.innerHTML = `
+      <div class="tt-empty-state">
+        <i class="las la-stream"></i>
+        <h5>Nog geen recente activiteit</h5>
+        <p>Zodra er nieuwe badge-events binnenkomen, zie je hier de laatste bewegingen.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = events.map((event) => `
+    <article class="tt-dashboard-item">
+      <div>
+        <h5>${escapeHtml(event.display_name || event.username || "Onbekend")}</h5>
+        <p>${escapeHtml(event.location || "Onbekende locatie")} - ${escapeHtml(event.action || "Onbekend")}</p>
+      </div>
+      <div class="text-right">
+        <span class="badge badge-outline-primary">${escapeHtml(event.action || "-")}</span>
+        <small>${formatDateTime(event.timestamp)}</small>
+      </div>
+    </article>
+  `).join("");
+}
+
+function renderLocations(locations) {
+  const container = document.getElementById("dashboard-locations");
+  if (!container) return;
+
+  if (locations.length === 0) {
+    container.innerHTML = `
+      <div class="col-12">
+        <div class="tt-empty-state">
+          <i class="las la-map-marker-alt"></i>
+          <h5>Geen locatiegegevens</h5>
+          <p>Er zijn momenteel geen aanwezigen om per locatie te tonen.</p>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = locations.map((location) => `
+    <div class="col-lg-4 col-md-6 mb-3">
+      <div class="tt-panel">
+        <span class="text-muted">Locatie</span>
+        <h4 class="mb-1">${escapeHtml(location.location || "Onbekend")}</h4>
+        <p class="mb-0">${location.count || 0} aanwezig</p>
+      </div>
+    </div>
+  `).join("");
+}
+
+function setText(id, value) {
+  const element = document.getElementById(id);
+  if (element) {
+    element.textContent = value;
+  }
+}
+
+function formatStatus(status) {
+  if (status === "on_break") return "Pauze";
+  if (status === "present") return "Aanwezig";
+  return "Afwezig";
+}
+
+function formatDateTime(value) {
+  if (!value) return "Onbekend";
+  return new Date(value).toLocaleString("nl-BE", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}

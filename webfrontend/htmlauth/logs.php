@@ -22,6 +22,7 @@ LBWeb::lbheader($template_title, $helplink, $helptemplate);
 $docker_log = '/opt/loxberry/log/plugins/timetrackingplugin/docker.log';
 $mqtt_log = '/opt/loxberry/log/plugins/timetrackingplugin/timetracking_mqtt.log';
 $app_log = '/opt/loxberry/log/plugins/timetrackingplugin/app.log';
+$docker_compose_path = '/opt/loxberry/bin/plugins/timetrackingplugin';
 
 // App logging function - for general app and API events
 function writeToLog($message, $type = 'INFO') {
@@ -163,6 +164,19 @@ function formatLogContent($content) {
     
     return $formatted;
 }
+
+function readCommandOutput($command) {
+    $output = shell_exec($command . ' 2>&1');
+    if ($output === null || trim($output) === '') {
+        return "No output returned for command:\n$command";
+    }
+
+    return $output;
+}
+
+$mqtt_docker_logs = readCommandOutput(
+    "cd " . escapeshellarg($docker_compose_path) . " && sudo docker compose logs --tail=200 mqtt-listener"
+);
 ?>
 
 <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
@@ -219,6 +233,25 @@ function formatLogContent($content) {
                 </div>
                 <small class="text-muted mt-2 d-block">
                     <i class="fas fa-info-circle"></i> Showing last 200 lines from: <?= $mqtt_log ?>
+                </small>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <h4 class="mb-0"><i class="fas fa-terminal"></i> MQTT Listener Container Output</h4>
+                <div>
+                    <button class="btn btn-outline-light btn-sm" onclick="refreshLogs()">
+                        <i class="fas fa-refresh"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="mqtt-container-log" style="height: 400px; overflow-y: auto; background: #f8f9fa; padding: 15px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px;">
+                    <?= formatLogContent($mqtt_docker_logs) ?>
+                </div>
+                <small class="text-muted mt-2 d-block">
+                    <i class="fas fa-info-circle"></i> Showing last 200 lines from `docker compose logs mqtt-listener`
                 </small>
             </div>
         </div>
@@ -289,7 +322,7 @@ setInterval(function() {
 
 // Auto-scroll to bottom of log containers
 window.onload = function() {
-    const logContainers = ['docker-log', 'mqtt-log', 'app-log'];
+    const logContainers = ['docker-log', 'mqtt-log', 'mqtt-container-log', 'app-log'];
     logContainers.forEach(function(id) {
         const container = document.getElementById(id);
         if (container) {

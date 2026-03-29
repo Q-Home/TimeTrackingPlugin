@@ -1,6 +1,20 @@
 document.addEventListener("DOMContentLoaded", () => {
   const role = (localStorage.getItem("role") || "").toLowerCase();
   const token = localStorage.getItem("access_token");
+  const feedback = document.getElementById("app-form-feedback");
+
+  function notify(message, type = "info") {
+    if (feedback) {
+      feedback.innerHTML = `<div class="alert alert-${type === "error" ? "danger" : type}" role="alert">${message}</div>`;
+    }
+
+    if (window.appShell?.showNotice) {
+      window.appShell.showNotice(message, type);
+      return;
+    }
+
+    alert(message);
+  }
 
   if (!token) {
     window.location.href = "/index.html";
@@ -8,8 +22,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (role !== "admin") {
-    alert("You are not authorized to access this page.");
-    window.location.href = "/dashboard.html";
+    notify("Je hebt geen toegang tot deze pagina.", "warning");
+    window.location.href = "/badgelist.html";
     return;
   }
 
@@ -49,7 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (response.status === 403) {
-      alert("Geen toegang.");
+      notify("Geen toegang.", "warning");
       return true;
     }
 
@@ -101,6 +115,35 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  async function checkBadgeCodeUnique(badgeCode) {
+    if (!badgeCode) {
+      return false;
+    }
+
+    try {
+      const response = await fetch(`${apiUrl}/users/`, {
+        method: "GET",
+        headers: authHeaders(false),
+      });
+
+      if (handleAuthError(response)) return true;
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || result.message || "Failed to check badge code");
+      }
+
+      const users = result?.data?.users || result?.users || [];
+      return users.some(
+        (user) => (user.badge_code || user.primary_badge || "").toLowerCase() === badgeCode.toLowerCase()
+      );
+    } catch (err) {
+      console.error("Error checking badge code uniqueness:", err);
+      return false;
+    }
+  }
+
   blockedStatusRadios.forEach((radio) => {
     radio.addEventListener("change", () => {
       if (!profilePic) return;
@@ -120,6 +163,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const firstName = (document.getElementById("fname")?.value || "").trim();
     const lastName = (document.getElementById("lname")?.value || "").trim();
     const companyName = (document.getElementById("cname")?.value || "").trim();
+    const badgeCode = (document.getElementById("badgeCode")?.value || "").trim();
     const email = (document.getElementById("email")?.value || "").trim();
     const selectedRole = (document.getElementById("selectuserrole")?.value || "").trim();
     const password = (document.getElementById("pass")?.value || "").trim();
@@ -152,8 +196,15 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    if (badgeCode) {
+      const badgeCodeExists = await checkBadgeCodeUnique(badgeCode);
+      if (badgeCodeExists) {
+        errors.push("Badge code already exists. Please choose another.");
+      }
+    }
+
     if (errors.length > 0) {
-      alert("Validation Errors:\n" + errors.join("\n"));
+      notify(errors.join(" "), "warning");
       return;
     }
 
@@ -166,6 +217,7 @@ document.addEventListener("DOMContentLoaded", () => {
           first_name: firstName,
           last_name: lastName,
           company_name: companyName,
+          badge_code: badgeCode,
           email: email,
           role: selectedRole,
           password: password,
@@ -181,7 +233,7 @@ document.addEventListener("DOMContentLoaded", () => {
         throw new Error(result.error || result.message || "Unknown error occurred.");
       }
 
-      alert(result.message || "User created successfully.");
+      notify(result.message || "Gebruiker succesvol aangemaakt.", "success");
 
       form.reset();
 
@@ -189,10 +241,10 @@ document.addEventListener("DOMContentLoaded", () => {
         profilePic.src = "images/user/11_green.png";
       }
 
-      window.location.href = "/users-list.html";
+      window.location.href = "/user-list.html";
     } catch (err) {
       console.error("Create user error:", err);
-      alert(err.message || "A network error occurred. Please try again.");
+      notify(err.message || "Er is een netwerkfout opgetreden. Probeer opnieuw.", "error");
     }
   });
 });

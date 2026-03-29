@@ -1,0 +1,16 @@
+# Local secrets and environment files
+.env
+*.env
+!*.env.example
+bin/.env
+
+# Local plugin settings with secrets
+data/settings.json
+
+# Generated logs and local runtime files
+bin/logs/
+logs/
+
+# Optional local compose overrides
+docker-compose.override.yml
+bin/docker-compose.override.yml

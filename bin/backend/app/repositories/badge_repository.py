@@ -71,6 +71,26 @@ class BadgeRepository:
             .sort("timestamp", 1)
         )
 
+    def find_badges_in_range(self, start_date: datetime, end_date: datetime):
+        return list(
+            self.mongo.db["badge_logs"]
+            .find({
+                "timestamp": {
+                    "$gte": start_date,
+                    "$lte": end_date
+                }
+            })
+            .sort("timestamp", 1)
+        )
+
+    def find_recent_badges(self, limit=10):
+        return list(
+            self.mongo.db["badge_logs"]
+            .find({})
+            .sort("timestamp", -1)
+            .limit(limit)
+        )
+
     def create_indexes(self):
         self.mongo.db["badge_logs"].create_index("timestamp")
         self.mongo.db["badge_logs"].create_index("badge_code")

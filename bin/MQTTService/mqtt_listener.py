@@ -2,6 +2,7 @@
 import os
 import time
 import json
+import traceback
 from datetime import datetime, timezone
 import requests
 import paho.mqtt.client as mqtt
@@ -14,24 +15,33 @@ COLLECTION_NAME = os.getenv("MONGO_COLLECTION_NAME", "entrees")
 LOGFILE = os.path.join(DB_FOLDER, "timetracking_mqtt.log")
 
 # MongoDB connection - configureerbaar via environment variables
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://192.168.19.54:27017/")
-MONGO_HOST = os.getenv("MONGO_HOST", "192.168.19.54")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/timetracking")
+MONGO_HOST = os.getenv("MONGO_HOST", "localhost")
 MONGO_PORT = int(os.getenv("MONGO_PORT", "27017"))
 
 # MQTT settings - configureerbaar
-MQTT_BROKER = os.getenv("MQTT_BROKER", "192.168.19.54")
+MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
 MQTT_TOPIC = os.getenv("MQTT_TOPIC", "miniserver/timetracking")
 MQTT_STATS_TOPIC = os.getenv("MQTT_STATS_TOPIC", "miniserver/timetracking/getstats")
 MQTT_PUB_TOPIC = os.getenv("MQTT_PUB_TOPIC", "loxberry/timetracking")
-MQTT_USERNAME = os.getenv("MQTT_USERNAME", "loxberry")
-MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "loxberry")
+MQTT_USERNAME = os.getenv("MQTT_USERNAME", "")
+MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "")
 
 # Backend API endpoint
-BACKEND_API = os.getenv("BACKEND_API", "http://192.168.19.54:5000/api/v1")
+BACKEND_API = os.getenv("BACKEND_API", "http://localhost:5000/api/v1")
+INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "")
+MQTT_LOG_PAYLOADS = os.getenv("MQTT_LOG_PAYLOADS", "true").lower() == "true"
 
 # Belgische tijdzone
 BELGIUM_TZ = ZoneInfo("Europe/Brussels")
+
+
+def backend_headers():
+    headers = {}
+    if INTERNAL_API_KEY:
+        headers["X-Internal-API-Key"] = INTERNAL_API_KEY
+    return headers
 
 
 def parse_to_belgium(incoming_ts):
@@ -91,6 +101,12 @@ def log(msg):
     os.makedirs(os.path.dirname(LOGFILE), exist_ok=True)
     with open(LOGFILE, "a") as f:
         f.write(f"[{now}] {msg}\n")
+
+
+def log_exception(context, exc):
+    details = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    log(f"{context}: {exc}")
+    log(details.rstrip())
 
 # ---------------- API Client ----------------
 def insert_to_db(badge_data):
@@ -161,23 +177,35 @@ def insert_to_db(badge_data):
         log(f"Server received_at set to Belgium time {received_iso}")
 
         # Maak de API-aanroep
-        response = requests.post(f"{BACKEND_API}/badges/", json=badge_data)
+        response = requests.post(
+            f"{BACKEND_API}/badges/",
+            json=badge_data,
+            headers=backend_headers(),
+            timeout=10,
+        )
         response.raise_for_status()
 
         log(f"Successfully sent badge data to API: {response.status_code}")
         print(f"[PRINT] API response: {response.status_code} {response.text}")
+        return True
 
     except requests.exceptions.RequestException as e:
         error_msg = f"API request failed: {e}"
         print(f"[PRINT][ERROR] {error_msg}")
         log(error_msg)
+        return False
 
 def get_user_logs(username):
     print(f"[PRINT] get_user_logs called for user: {username}")
     logs = []
     try:
         log(f"Fetching logs for user: {username}")
-        response = requests.get(f"{BACKEND_API}/badges/search", json={"username": username})
+        response = requests.get(
+            f"{BACKEND_API}/badges/search",
+            json={"username": username},
+            headers=backend_headers(),
+            timeout=10,
+        )
         response.raise_for_status()
         logs = response.json()
         print(f"[PRINT] Found {len(logs)} logs for {username}")
@@ -216,11 +244,24 @@ def on_connect(client, userdata, flags, rc, properties=None):
         log(f"Failed to connect to MQTT broker, return code {rc}")
         print(f"[PRINT][ERROR] Failed to connect to MQTT broker, rc={rc}")
 
+
+def on_disconnect(client, userdata, disconnect_flags, rc, properties=None):
+    log(f"Disconnected from MQTT broker. rc={rc}")
+    print(f"[PRINT][WARNING] MQTT disconnected rc={rc}")
+
+
+def on_subscribe(client, userdata, mid, reason_code_list, properties=None):
+    log(f"MQTT subscribe acknowledged. mid={mid}, reason_codes={reason_code_list}")
+    print(f"[PRINT] MQTT subscribe acknowledged. mid={mid}, reason_codes={reason_code_list}")
+
 def on_message(client, userdata, msg):
-    print(f"[PRINT] on_message called. Topic: {msg.topic}, Payload: {msg.payload}")
+    print(f"[PRINT] on_message called. Topic: {msg.topic}, Payload length: {len(msg.payload)}")
     payload = msg.payload.decode().strip()
     topic = msg.topic
-    log(f"Received MQTT message on topic '{topic}': {payload}")
+    if MQTT_LOG_PAYLOADS:
+        log(f"Received MQTT message on topic '{topic}': {payload}")
+    else:
+        log(f"Received MQTT message on topic '{topic}' (payload logging disabled, {len(msg.payload)} bytes)")
 
     if topic == MQTT_TOPIC:
         # Accept either a JSON object payload or the legacy semicolon-separated string
@@ -270,6 +311,7 @@ def on_message(client, userdata, msg):
 
                 # Call API
                 success = insert_to_db(badge_data)
+                log(f"insert_to_db result={success} for user='{badge_data.get('username', '')}' action='{badge_data.get('action', '')}'")
 
                 # Publish to Loxone-friendly topic
                 publish_to_loxone(client,
@@ -280,7 +322,7 @@ def on_message(client, userdata, msg):
 
         except Exception as e:
             print(f"[PRINT][ERROR] Failed to process badge data: {e}")
-            log(f"Failed to process badge data: {e}")
+            log_exception("Failed to process badge data", e)
 
     elif topic == MQTT_STATS_TOPIC:
         try:
@@ -296,7 +338,7 @@ def on_message(client, userdata, msg):
                 log(f"No logs found for user '{username}'")
         except Exception as e:
             print(f"[PRINT][ERROR] Error handling stats request: {e}")
-            log(f"Error handling stats request: {e}")
+            log_exception("Error handling stats request", e)
 
 # ---------------- Main Loop ----------------
 def main():
@@ -304,12 +346,19 @@ def main():
     log("Starting timetracking MQTT script...")
     log(f"MongoDB URI: {MONGO_URI}")
     log(f"MQTT Broker: {MQTT_BROKER}:{MQTT_PORT}")
+    log(f"MQTT Topic: {MQTT_TOPIC}")
+    log(f"MQTT Stats Topic: {MQTT_STATS_TOPIC}")
+    log(f"MQTT Publish Topic: {MQTT_PUB_TOPIC}")
+    log(f"Backend API: {BACKEND_API}")
+    log(f"Internal API key configured: {'yes' if INTERNAL_API_KEY else 'no'}")
     log(f"Using timezone: Europe/Brussels")
 
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
     client.on_connect = on_connect
+    client.on_disconnect = on_disconnect
     client.on_message = on_message
+    client.on_subscribe = on_subscribe
 
     try:
         log(f"Connecting to MQTT broker at {MQTT_BROKER}:{MQTT_PORT}...")
@@ -326,14 +375,14 @@ def main():
 
     try:
         while True:
-            print(f"[PRINT] main loop tick ({datetime.now(BELGIUM_TZ).strftime('%H:%M:%S')})")
+            print("[PRINT] Main loop heartbeat - " + datetime.now(BELGIUM_TZ).isoformat())
             time.sleep(1)
     except KeyboardInterrupt:
         print("[PRINT] KeyboardInterrupt: Shutting down gracefully.")
         log("KeyboardInterrupt: Shutting down gracefully.")
     except Exception as e:
         print(f"[PRINT][ERROR] Unexpected error in main loop: {e}")
-        log(f"Unexpected error in main loop: {e}")
+        log_exception("Unexpected error in main loop", e)
     finally:
         print("[PRINT] Stopping MQTT loop and disconnecting client.")
         client.loop_stop()

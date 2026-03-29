@@ -14,7 +14,8 @@
    <title>Users List - Time Tracking System</title>
 
    <!-- Favicon -->
-   <link rel="shortcut icon" href="images/favicon.ico" />
+   <link rel="icon" type="image/svg+xml" href="images/timetracking-favicon.svg" />
+   <link rel="shortcut icon" href="images/timetracking-favicon.svg" />
 
    <!-- Bootstrap CSS -->
    <link rel="stylesheet" href="css/bootstrap.min.css">
@@ -24,6 +25,7 @@
     <link rel="stylesheet" href="css/style.css">
     <!-- Responsive CSS -->
     <link rel="stylesheet" href="css/responsive.css">
+    <link rel="stylesheet" href="css/timetracking-ui.css">
     <style>
       .timesheet-user-row {
          cursor: pointer;
@@ -54,7 +56,7 @@
     </style>
 </head>
 
-<body>
+<body data-page="users" data-admin-page="true">
    <!-- loader Start -->
    <div id="loading">
       <div id="loading-center"></div>
@@ -66,19 +68,28 @@
       <!-- Sidebar  -->
       <div class="iq-sidebar">
          <div class="iq-sidebar-logo d-flex justify-content-between">
-            <a href="dashboard.html" class="header-logo">
-               <img src="images/logo.png" class="img-fluid rounded-circle" alt="Logo">
-               <div class="logo-title"></div>
+            <a href="badgelist.html" class="header-logo tt-shell-brand">
+               <img src="images/logo.png" class="img-fluid" alt="Logo">
+               <div class="tt-shell-brand__text">
+                  <span class="tt-shell-brand__eyebrow">Q-Home</span>
+                  <span class="tt-shell-brand__title">TimeTracking</span>
+               </div>
             </a>
          </div>
          <div id="sidebar-scrollbar">
             <nav class="iq-sidebar-menu">
                <ul id="iq-sidebar-toggle" class="iq-menu">
+                  <li data-admin-only>
+                     <a href="dashboard.html"><i class="las la-tachometer-alt"></i><span>Dashboard</span></a>
+                  </li>
                   <li>
                      <a href="badgelist.html"><i class="las la-id-card"></i><span>Badge Scans</span></a>
                   </li>
                   <li class="active active-menu">
-                     <a href="user-list.html"><i class="las la-clock"></i><span>Timesheet</span></a>
+                     <a href="user-list.html"><i class="las la-users"></i><span>Gebruikers</span></a>
+                  </li>
+                  <li data-admin-only>
+                     <a href="logs.html"><i class="las la-clipboard-list"></i><span>Logs</span></a>
                   </li>
                </ul>
             </nav>
@@ -89,9 +100,16 @@
       <div class="iq-top-navbar">
          <div class="iq-navbar-custom">
             <nav class="navbar navbar-expand-lg navbar-light p-0">
-               <div class="navbar-breadcrumb">
-                  <h4 class="mb-0 text-dark">Timesheet Overview</h4>
-                  <p class="mb-0"><span class="text-primary">User Timesheets,</span> Select a user or click the timesheet button to open their overview</p>
+               <div class="navbar-breadcrumb w-100">
+                  <div class="tt-page-heading">
+                     <div class="tt-page-heading__copy">
+                        <h4 class="mb-0 text-dark" id="users-page-title">Gebruikersbeheer</h4>
+                        <p class="mb-0" id="users-page-subtitle"><span class="text-primary">Beheer,</span> bekijk alle gebruikers en open van hieruit bewerken of toevoegen.</p>
+                     </div>
+                     <div class="tt-page-actions">
+                        <a class="btn btn-outline-primary btn-sm" href="add-user.html" data-admin-only><i class="las la-user-plus mr-1"></i>Nieuwe gebruiker</a>
+                     </div>
+                  </div>
                </div>
 
                <div class="collapse navbar-collapse" id="navbarSupportedContent">
@@ -117,10 +135,10 @@
                   <div class="iq-card">
                      <div class="iq-card-header d-flex justify-content-between">
                         <div class="iq-header-title">
-                           <h4 class="card-title">
-                              <i class="las la-users"></i> Active Users
+                           <h4 class="card-title" id="users-card-title">
+                              <i class="las la-users"></i> Alle gebruikers
                            </h4>
-                           <p class="mb-0">Users who have badge scan activity</p>
+                           <p class="mb-0" id="users-card-description">Centrale lijst voor gebruikersbeheer en timesheets.</p>
                         </div>
                         <div>
                            <button class="btn btn-outline-primary btn-sm" onclick="refreshUsers()">
@@ -186,10 +204,10 @@
                         </div>
 
                         <!-- No Data State -->
-                        <div id="no-users" class="text-center p-4 d-none">
-                           <i class="las la-users" style="font-size: 3rem; color: #ccc;"></i>
-                           <h5 class="mt-2">No users found</h5>
-                           <p class="text-muted">No badge scan activity found in the database.</p>
+                        <div id="no-users" class="tt-empty-state d-none">
+                           <i class="las la-users"></i>
+                           <h5>Geen gebruikers gevonden</h5>
+                           <p>Er zijn nog geen gebruikers beschikbaar voor dit overzicht. Voeg een gebruiker toe of controleer of de backend al data teruggeeft.</p>
                         </div>
 
                         <!-- Pagination -->
@@ -276,6 +294,7 @@
          </div>
       </div>
    </div>
+   <div id="app-notice-region"></div>
 
    <!-- Success/Error Messages -->
    <div id="message-container"></div>
@@ -304,6 +323,7 @@
    <script src="js/jquery.magnific-popup.min.js"></script>
    <script src="js/select2.min.js"></script>
    <script src="js/custom.js"></script>
+   <script src="js/app-shell.js"></script>
    <script src="js/get-users.js"></script>
 </body>
 

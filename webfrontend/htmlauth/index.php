@@ -95,7 +95,8 @@ function writeToMQTTLog($message, $type = 'INFO') {
 // Function to load settings
 function loadSettings($settings_file) {
     $default_settings = [
-        'backend_url' => 'http://localhost:5000/api/v1'
+        'backend_url' => 'http://localhost:5000/api/v1',
+        'internal_api_key' => ''
     ];
     
     if (file_exists($settings_file)) {
@@ -125,9 +126,10 @@ function saveSettings($settings_file, $settings) {
 // Load settings at page initialization
 $settings = loadSettings($settings_file);
 $backend_url = $settings['backend_url'];
+$internal_api_key = $settings['internal_api_key'] ?? '';
 
 // Function to make API requests with improved error handling
-function makeAPIRequest($url, $method = 'GET', $data = null) {
+function makeAPIRequest($url, $method = 'GET', $data = null, $internal_api_key = '') {
     writeToLog("Making API request: $method $url");
     
     // Check if URL is valid
@@ -141,7 +143,11 @@ function makeAPIRequest($url, $method = 'GET', $data = null) {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    $headers = ['Content-Type: application/json'];
+    if (!empty($internal_api_key)) {
+        $headers[] = 'X-Internal-API-Key: ' . $internal_api_key;
+    }
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
@@ -233,7 +239,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ];
             
             writeToLog("Attempting to add user: " . $userData['username']);
-            $response = makeAPIRequest($backend_url . '/users/', 'POST', $userData);
+            $response = makeAPIRequest($backend_url . '/users/', 'POST', $userData, $internal_api_key);
             
             if ($response['success']) {
                 echo '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Gebruiker succesvol toegevoegd!</div>';
@@ -257,7 +263,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $blocked = $_POST['current_blocked'] === 'true' ? 'false' : 'true';
         
         $updateData = ['blocked' => $blocked === 'true'];
-        $response = makeAPIRequest($backend_url . '/users/' . urlencode($username), 'PUT', $updateData);
+        $response = makeAPIRequest($backend_url . '/users/' . urlencode($username), 'PUT', $updateData, $internal_api_key);
         
         if ($response['success']) {
             $status = $blocked === 'true' ? 'gedeactiveerd' : 'geactiveerd';
@@ -275,20 +281,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Update settings if provided
     if (isset($_POST['update_settings'])) {
         $new_settings = [
-            'backend_url' => trim($_POST['backend_url'])
+            'backend_url' => trim($_POST['backend_url']),
+            'internal_api_key' => trim($_POST['internal_api_key'] ?? '')
         ];
         
         if (saveSettings($settings_file, $new_settings)) {
             $settings = $new_settings; // Update current settings
             $backend_url = $settings['backend_url']; // Update backend URL
+            $internal_api_key = $settings['internal_api_key'] ?? '';
             echo '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Instellingen succesvol opgeslagen!</div>';
             writeToLog("Settings updated successfully");
             
             // Re-fetch users with new backend URL
             writeToLog("Re-fetching users with new backend URL");
-            $testResponse = makeAPIRequest($backend_url . '/users/', 'GET');
-            if ($testResponse['success'] && isset($testResponse['data']['users'])) {
-                $users = $testResponse['data']['users'];
+            $testResponse = makeAPIRequest($backend_url . '/users/', 'GET', null, $internal_api_key);
+            if ($testResponse['success'] && isset($testResponse['data']['data']['users'])) {
+                $users = $testResponse['data']['data']['users'];
                 $usersResponse = $testResponse;
                 writeToLog("Users re-fetched successfully: " . count($users) . " users loaded");
             } else {
@@ -304,10 +312,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['test_connection'])) {
         writeToLog("Testing backend connection");
         
-        $response = makeAPIRequest($backend_url . '/health', 'GET');
+        $response = makeAPIRequest($backend_url . '/health', 'GET', null, $internal_api_key);
         if (!$response['success']) {
             // Try alternative health check endpoint
-            $response = makeAPIRequest($backend_url . '/users/', 'GET');
+            $response = makeAPIRequest($backend_url . '/users/', 'GET', null, $internal_api_key);
         }
         
         if ($response['success']) {
@@ -323,13 +331,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Fetch users from backend - using correct endpoint
 writeToLog("Fetching users from backend");
-$usersResponse = makeAPIRequest($backend_url . '/users/', 'GET');
+$usersResponse = makeAPIRequest($backend_url . '/users/', 'GET', null, $internal_api_key);
 $users = [];
 
 if ($usersResponse['success']) {
     // Handle the wrapped response format from backend
-    if (isset($usersResponse['data']['users']) && is_array($usersResponse['data']['users'])) {
-        $users = $usersResponse['data']['users'];
+    if (isset($usersResponse['data']['data']['users']) && is_array($usersResponse['data']['data']['users'])) {
+        $users = $usersResponse['data']['data']['users'];
         writeToLog("Successfully fetched " . count($users) . " users", "SUCCESS");
     }
 } else {
@@ -366,7 +374,15 @@ if ($usersResponse['success']) {
                                         <small class="form-text text-muted">Bijvoorbeeld: http://localhost:5000/api/v1 of http://172.28.0.15:5000/api/v1</small>
                                     </div>
                                 </div>
-                                <div class="col-md-4 d-flex align-items-end">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="internal_api_key"><i class="fas fa-key"></i> Internal API Key:</label>
+                                        <input type="text" class="form-control" id="internal_api_key" name="internal_api_key"
+                                               value="<?= htmlspecialchars($settings['internal_api_key'] ?? '') ?>">
+                                        <small class="form-text text-muted">Moet overeenkomen met de backend INTERNAL_API_KEY.</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-12 d-flex align-items-end">
                                     <div class="btn-group w-100" role="group">
                                         <button type="submit" name="update_settings" class="btn btn-warning">
                                             <i class="fas fa-save"></i> Opslaan

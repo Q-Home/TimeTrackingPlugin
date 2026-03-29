@@ -169,6 +169,9 @@ Index Of Script
         -----------------------------------------------------------------------*/
         jQuery("#load").fadeOut();
         jQuery("#loading").delay().fadeOut("");
+        setTimeout(function() {
+          jQuery("#loading").fadeOut("");
+        }, 1200);
 
         
 

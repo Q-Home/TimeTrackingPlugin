@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 from flask_jwt_extended import jwt_required
 from app.decorators.permissions import admin_required
+from app.decorators.internal_auth import internal_api_key_or_jwt_required
 
 
 def register_badge_routes(badge_service, api_prefix):
@@ -116,7 +117,7 @@ def register_badge_routes(badge_service, api_prefix):
         return badge_service.get_badge_by_id(badge_id)
 
     @badge_bp.route(f"{api_prefix}/badges/", methods=["POST"])
-    @jwt_required()
+    @internal_api_key_or_jwt_required()
     def create_badge():
         """
         Create a badge log

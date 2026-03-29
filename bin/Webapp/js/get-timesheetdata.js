@@ -2,6 +2,8 @@ let currentUser = null;
 let currentPeriodType = "week";
 let currentWeek = null;
 let currentMonth = null;
+const currentRole = (localStorage.getItem("role") || "").toLowerCase();
+const currentSessionUser = localStorage.getItem("username") || "";
 
 let timesheetDays = [];
 let currentSummary = null;
@@ -21,15 +23,16 @@ document.addEventListener("DOMContentLoaded", function () {
     return;
   }
 
-  currentUser = getUsernameFromUrl();
+  currentUser = resolveRequestedUser();
 
   if (!currentUser) {
-    showError("No username provided in URL. Use ?username=<username>");
+    showError("Geen gebruiker gevonden voor deze sessie.");
     return;
   }
 
   setText("user-name", currentUser);
   setText("user-id", currentUser);
+  configurePageForRole();
 
   bindPeriodEvents();
   setPeriod("week", true);
@@ -48,6 +51,15 @@ function authHeaders(includeJson = true) {
   return headers;
 }
 
+function notify(message, type = "info") {
+  if (window.appShell?.showNotice) {
+    window.appShell.showNotice(message, type);
+    return;
+  }
+
+  alert(message);
+}
+
 function handleAuthError(response) {
   if (response.status === 401) {
     localStorage.removeItem("access_token");
@@ -58,7 +70,12 @@ function handleAuthError(response) {
   }
 
   if (response.status === 403) {
-    alert("Geen toegang.");
+    if (currentRole !== "admin" && currentSessionUser) {
+      currentUser = currentSessionUser;
+      window.history.replaceState({}, "", `timesheet.html?username=${encodeURIComponent(currentSessionUser)}`);
+    }
+
+    notify("Geen toegang.", "warning");
     return true;
   }
 
@@ -68,6 +85,47 @@ function handleAuthError(response) {
 function getUsernameFromUrl() {
   const urlParams = new URLSearchParams(window.location.search);
   return urlParams.get("username") || urlParams.get("user");
+}
+
+function resolveRequestedUser() {
+  const requestedUser = getUsernameFromUrl();
+
+  if (currentRole === "admin") {
+    return requestedUser || currentSessionUser;
+  }
+
+  return currentSessionUser;
+}
+
+function configurePageForRole() {
+  const isAdmin = currentRole === "admin";
+  const backButton = document.getElementById("timesheet-back-link");
+  const pageTitle = document.getElementById("timesheet-page-title");
+  const pageSubtitle = document.getElementById("timesheet-page-subtitle");
+  const sidebarTimesheetLabel = document.getElementById("sidebar-timesheet-label");
+  const sidebarTimesheetLink = document.getElementById("sidebar-timesheet-link");
+
+  if (backButton) {
+    backButton.classList.toggle("d-none", !isAdmin);
+  }
+
+  if (pageTitle) {
+    pageTitle.textContent = isAdmin ? "User Timesheet" : "Mijn Timesheet";
+  }
+
+  if (pageSubtitle) {
+    pageSubtitle.innerHTML = isAdmin
+      ? '<span class="text-primary">Time Tracking,</span> View user hours and statistics'
+      : '<span class="text-primary">Time Tracking,</span> Bekijk jouw uren en geregistreerde badges';
+  }
+
+  if (sidebarTimesheetLabel) {
+    sidebarTimesheetLabel.textContent = isAdmin ? "Timesheet" : "Mijn Timesheet";
+  }
+
+  if (sidebarTimesheetLink && !isAdmin && currentSessionUser) {
+    sidebarTimesheetLink.setAttribute("href", `timesheet.html?username=${encodeURIComponent(currentSessionUser)}`);
+  }
 }
 
 function bindPeriodEvents() {
@@ -645,7 +703,7 @@ function showError(message) {
 
 function exportTimesheet() {
   if (!timesheetDays || timesheetDays.length === 0) {
-    alert("No data to export");
+    notify("Geen data om te exporteren.", "warning");
     return;
   }
 
@@ -682,7 +740,7 @@ function exportTimesheet() {
 
 function exportDetailedLog() {
   if (!timesheetDays || timesheetDays.length === 0) {
-    alert("No data to export");
+    notify("Geen data om te exporteren.", "warning");
     return;
   }
 

@@ -5,11 +5,10 @@
    <!-- Required meta tags -->
    <meta charset="utf-8">
    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-   <title>Add User</title>
+   <title>Nieuwe gebruiker - Time Tracking System</title>
    <!-- Favicon -->
-   <link rel="icon" type="images/png" href="/favicon-96x96.png" sizes="96x96" />
-   <link rel="icon" type="images/svg+xml" href="/favicon.svg" />
-   <link rel="shortcut icon" href="images//favicon.ico" />
+   <link rel="icon" type="image/svg+xml" href="images/timetracking-favicon.svg" />
+   <link rel="shortcut icon" href="images/timetracking-favicon.svg" />
    <link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon.png" />
    <link rel="manifest" href="images/site.webmanifest" />
 
@@ -22,9 +21,10 @@
    <link rel="stylesheet" href="css/style.css">
    <!-- Responsive CSS -->
    <link rel="stylesheet" href="css/responsive.css">
+   <link rel="stylesheet" href="css/timetracking-ui.css">
 </head>
 
-<body>
+<body data-page="add-user" data-admin-page="true">
    <!-- loader Start -->
    <div id="loading">
       <div id="loading-center">
@@ -36,10 +36,11 @@
       <!-- Sidebar  -->
       <div class="iq-sidebar">
          <div class="iq-sidebar-logo d-flex justify-content-between">
-            <a href="dashboard.html" class="header-logo">
-               <img src="images/logo.png" class="img-fluid rounded-circle" alt="Logo">
-               <div class="logo-title">
-                  <span class="text-primary ml-1 text-uppercase">MCT</span>
+            <a href="badgelist.html" class="header-logo tt-shell-brand">
+               <img src="images/logo.png" class="img-fluid" alt="Logo">
+               <div class="tt-shell-brand__text">
+                  <span class="tt-shell-brand__eyebrow">Q-Home</span>
+                  <span class="tt-shell-brand__title">TimeTracking</span>
                </div>
             </a>
             
@@ -48,13 +49,14 @@
             <nav class="iq-sidebar-menu">
                <ul id="iq-sidebar-toggle" class="iq-menu">
                   
+                  <li data-admin-only>
+                     <a href="dashboard.html"><i class="las la-tachometer-alt"></i><span>Dashboard</span></a>
+                  </li>
+                  <li>
+                     <a href="badgelist.html"><i class="las la-id-card"></i><span>Badge Scans</span></a>
+                  </li>
                   <li class="active active-menu">
-                     <a href="#userinfo" class="iq-waves-effect" data-toggle="collapse" aria-expanded="false"><span class="ripple rippleEffect"></span><i class="las la-user-tie iq-arrow-left"></i><span>User</span><i class="ri-arrow-right-s-line iq-arrow-right"></i></a>
-                     <ul id="userinfo" class="iq-submenu collapse" data-parent="#iq-sidebar-toggle">
-
-                        <li class="active active-menu"><a href="add-user.html"><i class="las la-plus-circle"></i>User Add</a></li>
-                        <li><a href="user-list.html"><i class="las la-th-list"></i>User List</a></li>
-                     </ul>
+                     <a href="user-list.html"><i class="las la-users"></i><span>Gebruikers</span></a>
                   </li>
                  
                   
@@ -85,9 +87,16 @@
       <div class="iq-top-navbar">
          <div class="iq-navbar-custom">
             <nav class="navbar navbar-expand-lg navbar-light p-0">
-               <div class="navbar-breadcrumb">
-                  <h4 class="mb-0 text-dark">MCT Server</h4>
-                  <p class="mb-0"><span class="text-primary">Hi there,</span> Great to see you again</p>
+               <div class="navbar-breadcrumb w-100">
+                  <div class="tt-page-heading">
+                     <div class="tt-page-heading__copy">
+                        <h4 class="mb-0 text-dark">Nieuwe gebruiker</h4>
+                        <p class="mb-0"><span class="text-primary">Beheer,</span> maak een account aan met rol, blokkering en wachtwoord.</p>
+                     </div>
+                     <div class="tt-page-actions">
+                        <a href="user-list.html" class="btn btn-outline-primary btn-sm"><i class="las la-users mr-1"></i>Gebruikerslijst</a>
+                     </div>
+                  </div>
                </div>
 
                <div class="collapse navbar-collapse" id="navbarSupportedContent">
@@ -104,7 +113,7 @@
                         <div class="iq-card shadow-none m-0">
                            <div class="iq-card-body p-0 ">
                               <div class="bg-primary p-3">
-                                 <h5 class="mb-0 text-white line-height" id="js-nametag">Hello Barry Tech</h5>
+                                 <h5 class="mb-0 text-white line-height" id="js-nametag">Welkom</h5>
                                  
                               </div>
                               <a href="#" class="iq-sub-card iq-bg-primary-hover" id="editUserLink">
@@ -113,13 +122,13 @@
                                        <i class="ri-file-user-line"></i>
                                     </div>
                                     <div class="media-body ml-3">
-                                       <h6 class="mb-0 ">My Profile</h6>
-                                       <p class="mb-0 font-size-12">View personal profile details.</p>
+                                       <h6 class="mb-0 ">Mijn profiel</h6>
+                                       <p class="mb-0 font-size-12">Bekijk en wijzig je accountgegevens.</p>
                                     </div>
                                  </div>
                               </a>
                               <div class="d-inline-block w-100 text-center p-3">
-                                 <a  id="logoutBtn" class="bg-primary iq-sign-btn" href="index.html" role="button">Sign out<i class="ri-login-box-line ml-2"></i></a>
+                                 <a id="logoutBtn" class="bg-primary iq-sign-btn" href="index.html" role="button">Uitloggen<i class="ri-login-box-line ml-2"></i></a>
                               </div>
                            </div>
                         </div>
@@ -151,8 +160,8 @@
                               <div class="form-group">
                                  <label>User Role:</label>
                                  <select class="form-control" id="selectuserrole">
-                                    <option>User</option>
-                                    <option>Admin</option>
+                                    <option value="user">Gebruiker</option>
+                                    <option value="admin">Admin</option>
                                  </select>
                               </div>
                               <div class="form-group">
@@ -183,6 +192,7 @@
                         </div>
                         <div class="iq-card-body">
                            <div class="new-user-info">
+                              <div id="app-form-feedback" class="mb-3"></div>
                               <form>
                                  
                                  <div class="row">
@@ -202,6 +212,11 @@
                                     <div class="form-group col-md-12">
                                        <label for="cname">Company Name:</label>
                                        <input type="text" class="form-control" id="cname" placeholder="Company Name">
+                                    </div>
+                                    <div class="form-group col-md-12">
+                                       <label for="badgeCode">Badge Code:</label>
+                                       <input type="text" class="form-control" id="badgeCode" placeholder="Badge Code">
+                                       <small class="form-text text-muted">Eén badgecode per gebruiker.</small>
                                     </div>
                      
                                     <div class="form-group col-md-12">
@@ -231,7 +246,7 @@
             </div>
          </div>
       </div>
-      
+      <div id="app-notice-region"></div>
    <!-- Wrapper END -->
    <!-- Footer -->
    <footer class="iq-footer">
@@ -305,6 +320,7 @@
    <script src="js/chart-custom.js"></script>
    <!-- Custom JavaScript -->
    <script src="js/custom.js"></script>
+   <script src="js/app-shell.js"></script>
    <!-- get-users JavaScript -->
    <script src="js/adduser.js"></script>
    <!-- <script src="js/authentication.js"></script> -->

@@ -11,6 +11,9 @@ class UserRepository:
     def find_by_email(self, email: str):
         return self.mongo.db["users"].find_one({"email": email})
 
+    def find_by_badge_code(self, badge_code: str):
+        return self.mongo.db["users"].find_one({"badge_code": badge_code})
+
     def find_by_username_or_email(self, value: str):
         return self.mongo.db["users"].find_one({
             "$or": [
@@ -22,6 +25,9 @@ class UserRepository:
     def find_by_id(self, user_id: str):
         return self.mongo.db["users"].find_one({"_id": ObjectId(user_id)})
 
+    def find_all(self):
+        return list(self.mongo.db["users"].find({}, {"password": 0}).sort("username", 1))
+
     def create_user(self, user_data: dict):
         return self.mongo.db["users"].insert_one(user_data)
 
@@ -31,10 +37,14 @@ class UserRepository:
             {"$set": update_fields}
         )
 
-    def update_by_id(self, user_id: str, update_fields: dict):
+    def update_by_id(self, user_id: str, update_fields: dict, unset_fields: dict = None):
+        update_ops = {"$set": update_fields}
+        if unset_fields:
+            update_ops["$unset"] = unset_fields
+
         return self.mongo.db["users"].update_one(
             {"_id": ObjectId(user_id)},
-            {"$set": update_fields}
+            update_ops
         )
 
     def delete_by_username(self, username: str):

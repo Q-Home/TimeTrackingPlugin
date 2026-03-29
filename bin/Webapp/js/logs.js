@@ -1,157 +1,226 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // const url = "http://173.212.225.50:8000"; process.env.URL || "http://173.212.225.50:8000"; // Basis-URL
+  const shell = window.appShell || {};
   const hostname = window.location.hostname;
-  const url = `http://${hostname}:5000`;
-  const logsEndpoint = url + "/api/v1/transactie/all/"; // Endpoint om logs op te halen
+  const apiBase = `http://${hostname}:5000/api/v1`;
+  const logsEndpoint = `${apiBase}/logs/?limit=1000`;
+
   const tableBody = document.querySelector(".js-Logs");
   const paginationContainer = document.getElementById("pagination");
+  const searchInput = document.getElementById("exampleInputSearch");
+  const logTypeFilter = document.getElementById("logTypeFilter");
+  const exportBtn = document.getElementById("exportLogsBtn");
+  const printBtn = document.getElementById("printLogsBtn");
 
-  const logsPerPage = 20; // Aantal logs per pagina
+  const logsPerPage = 20;
   let currentPage = 1;
   let logsData = [];
 
-  // Event listener voor zoekbalk en filter
-  const searchInput = document.getElementById("exampleInputSearch");
-  const logTypeFilter = document.getElementById("logTypeFilter");
+  function notify(message, type = "info") {
+    if (shell.showNotice) {
+      shell.showNotice(message, type);
+      return;
+    }
+    alert(message);
+  }
 
-  searchInput.addEventListener(
-    "input",
-    debounce(() => filterLogs(), 300),
-  );
-  logTypeFilter.addEventListener(
-    "change",
-    debounce(() => filterLogs(), 300),
-  );
+  function authHeaders() {
+    return {
+      Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
+    };
+  }
 
-  // Functie om logs te filteren
-  function filterLogs() {
-    const searchTerm = searchInput.value.toLowerCase();
-    const selectedType = logTypeFilter.value;
+  function escapeHtml(value) {
+    return String(value || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
 
-    const filteredLogs = logsData.filter((log) => {
-      const matchesSearch = log.message.toLowerCase().includes(searchTerm);
-      const matchesType = selectedType === "all" || log.type.toLowerCase() === selectedType;
+  function formatTimestamp(timestamp) {
+    if (!timestamp) return "-";
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return timestamp;
+    return date.toLocaleString("nl-BE");
+  }
+
+  function getFilteredLogs() {
+    const searchTerm = (searchInput?.value || "").trim().toLowerCase();
+    const selectedType = (logTypeFilter?.value || "all").toLowerCase();
+
+    return logsData.filter((log) => {
+      const type = (log.type || "").toLowerCase();
+      const message = (log.message || "").toLowerCase();
+      const timestamp = (log.timestamp || "").toLowerCase();
+
+      const matchesSearch =
+        !searchTerm ||
+        type.includes(searchTerm) ||
+        message.includes(searchTerm) ||
+        timestamp.includes(searchTerm);
+
+      const matchesType = selectedType === "all" || type === selectedType;
+
       return matchesSearch && matchesType;
     });
-
-    renderLogs(filteredLogs);
   }
 
-  // Logs ophalen van de API
-  async function fetchLogs() {
-    try {
-      const response = await fetch(logsEndpoint, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-        },
-      });
-      if (!response.ok) throw new Error("Fout bij het ophalen van logs");
-
-      const data = await response.json();
-      console.debug("Logs succesvol opgehaald:", data); // Debugging
-      logsData = data.transactions || [];
-      renderLogs(logsData); // We renderen de logs nadat ze opgehaald zijn
-    } catch (error) {
-      console.error("Er is een fout opgetreden:", error);
-      tableBody.innerHTML = "<tr><td colspan='3'>Fout bij het laden van logs. Probeer later opnieuw.</td></tr>";
-    }
+  function renderEmptyState(message) {
+    tableBody.innerHTML = `<tr><td colspan="3">${escapeHtml(message)}</td></tr>`;
+    paginationContainer.innerHTML = "";
   }
 
-  // Logs weergeven voor de huidige pagina
-  function renderLogs(filteredLogs) {
+  function renderLogs() {
+    const filteredLogs = getFilteredLogs();
     tableBody.innerHTML = "";
 
-    if (filteredLogs.length === 0) {
-      tableBody.innerHTML = "<tr><td colspan='5'>Geen logs beschikbaar.</td></tr>";
+    if (!filteredLogs.length) {
+      renderEmptyState("Geen logs gevonden voor de huidige filter.");
       return;
     }
 
+    const totalPages = Math.max(1, Math.ceil(filteredLogs.length / logsPerPage));
+    if (currentPage > totalPages) {
+      currentPage = totalPages;
+    }
+
     const startIndex = (currentPage - 1) * logsPerPage;
-    const endIndex = Math.min(startIndex + logsPerPage, filteredLogs.length);
+    const visibleLogs = filteredLogs.slice(startIndex, startIndex + logsPerPage);
 
-    filteredLogs.slice(startIndex, endIndex).forEach((log) => {
-      // Zet duur (in seconden) om naar "uur min" formaat
-      let duurText = "0min";
-      if (log.duur && !isNaN(log.duur)) {
-        const totalMinutes = Math.floor(log.duur / 60);
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = totalMinutes % 60;
-        duurText = hours > 0 ? `${hours}u ${minutes}min` : `${minutes}min`;
-      }
-
-      // Formatteer timestamp naar "dd-mm-yyyy HH:MM"
-      let formattedTimestamp = "";
-      if (log.timestamp) {
-        const date = new Date(log.timestamp);
-        const day = String(date.getDate()).padStart(2, "0");
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const year = date.getFullYear();
-        const hours = String(date.getHours()).padStart(2, "0");
-        const minutes = String(date.getMinutes()).padStart(2, "0");
-        formattedTimestamp = `${day}-${month}-${year} ${hours}:${minutes}`;
-      }
-
+    visibleLogs.forEach((log) => {
       const row = `
         <tr>
-          <td>${log.user || ""}</td>
-          <td>${duurText}</td>
-          <td>${log.verbruik || ""}</td>
-          <td>${log.laadpaalId || ""}</td>
-          <td>${log.kostprijs || "0"}€</td>
-          <td>${formattedTimestamp}</td>
+          <td><span class="badge badge-light">${escapeHtml(log.type || "Info")}</span></td>
+          <td>${escapeHtml(log.message || "")}</td>
+          <td>${escapeHtml(formatTimestamp(log.timestamp))}</td>
         </tr>
       `;
       tableBody.insertAdjacentHTML("beforeend", row);
     });
 
-    renderPagination(filteredLogs);
+    renderPagination(filteredLogs.length);
   }
 
-  // Paginering weergeven
-  function renderPagination(filteredLogs) {
+  function renderPagination(totalItems) {
     paginationContainer.innerHTML = "";
-
-    const totalPages = Math.ceil(filteredLogs.length / logsPerPage);
+    const totalPages = Math.ceil(totalItems / logsPerPage);
     if (totalPages <= 1) return;
 
-    const prevButton = document.createElement("li");
-    prevButton.classList.add("page-item", currentPage === 1 && "disabled");
-    prevButton.innerHTML = `<span class="page-link">Previous</span>`;
-    if (currentPage > 1) prevButton.onclick = () => changePage(currentPage - 1);
-    paginationContainer.appendChild(prevButton);
+    const addPageItem = (label, page, disabled = false, active = false) => {
+      const item = document.createElement("li");
+      item.className = `page-item${disabled ? " disabled" : ""}${active ? " active" : ""}`;
+      item.innerHTML = `<a class="page-link" href="#">${label}</a>`;
+      item.addEventListener("click", (event) => {
+        event.preventDefault();
+        if (disabled || page === currentPage) return;
+        currentPage = page;
+        renderLogs();
+      });
+      paginationContainer.appendChild(item);
+    };
 
-    for (let i = 1; i <= totalPages; i++) {
-      const pageButton = document.createElement("li");
-      pageButton.classList.add("page-item", i === currentPage && "active");
-      pageButton.innerHTML = `<a class="page-link" href="#">${i}</a>`;
-      pageButton.onclick = () => changePage(i);
-      paginationContainer.appendChild(pageButton);
+    addPageItem("Vorige", currentPage - 1, currentPage === 1);
+
+    for (let page = 1; page <= totalPages; page += 1) {
+      addPageItem(String(page), page, false, page === currentPage);
     }
 
-    const nextButton = document.createElement("li");
-    nextButton.classList.add("page-item", currentPage === totalPages && "disabled");
-    nextButton.innerHTML = `<span class="page-link">Next</span>`;
-    if (currentPage < totalPages) nextButton.onclick = () => changePage(currentPage + 1);
-    paginationContainer.appendChild(nextButton);
+    addPageItem("Volgende", currentPage + 1, currentPage === totalPages);
   }
 
-  // Verander van pagina
-  function changePage(page) {
-    const totalPages = Math.ceil(logsData.length / logsPerPage);
-    if (page >= 1 && page <= totalPages) {
-      currentPage = page;
-      filterLogs();
-    }
-  }
-
-  // Hulp functie voor debounce (om te voorkomen dat de functie te snel achter elkaar wordt aangeroepen)
   function debounce(func, delay) {
     let timer;
-    return function (...args) {
+    return (...args) => {
       clearTimeout(timer);
-      timer = setTimeout(() => func.apply(this, args), delay);
+      timer = setTimeout(() => func(...args), delay);
     };
   }
+
+  async function fetchLogs() {
+    try {
+      const response = await fetch(logsEndpoint, { headers: authHeaders() });
+
+      if (response.status === 401) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("username");
+        localStorage.removeItem("role");
+        window.location.href = "/index.html";
+        return;
+      }
+
+      if (response.status === 403) {
+        notify("Alleen admins kunnen de systeemlogs bekijken.", "warning");
+        window.location.href = "/badgelist.html";
+        return;
+      }
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error || payload.message || "Fout bij het ophalen van logs.");
+      }
+
+      logsData = payload?.data?.logs || [];
+      currentPage = 1;
+      renderLogs();
+    } catch (error) {
+      console.error("Error loading logs:", error);
+      renderEmptyState("Fout bij het laden van logs. Probeer later opnieuw.");
+      notify(error.message || "Fout bij het laden van logs.", "error");
+    }
+  }
+
+  function exportLogsToCsv() {
+    const filteredLogs = getFilteredLogs();
+    if (!filteredLogs.length) {
+      notify("Er zijn geen logs om te exporteren.", "warning");
+      return;
+    }
+
+    const rows = [
+      ["Type", "Bericht", "Tijdstip"],
+      ...filteredLogs.map((log) => [
+        log.type || "",
+        log.message || "",
+        formatTimestamp(log.timestamp),
+      ]),
+    ];
+
+    const csv = rows
+      .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "systeemlogs.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  searchInput?.addEventListener("input", debounce(() => {
+    currentPage = 1;
+    renderLogs();
+  }, 200));
+
+  logTypeFilter?.addEventListener("change", () => {
+    currentPage = 1;
+    renderLogs();
+  });
+
+  exportBtn?.addEventListener("click", (event) => {
+    event.preventDefault();
+    exportLogsToCsv();
+  });
+
+  printBtn?.addEventListener("click", (event) => {
+    event.preventDefault();
+    window.print();
+  });
 
   fetchLogs();
 });

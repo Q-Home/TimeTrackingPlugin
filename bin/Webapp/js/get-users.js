@@ -2,6 +2,7 @@ const hostname = window.location.hostname;
 const url = `http://${hostname}:5000`;
 const token = localStorage.getItem("access_token");
 const role = (localStorage.getItem("role") || "").toLowerCase();
+const currentUsername = localStorage.getItem("username") || "";
 
 let allUsers = [];
 let filteredUsers = [];
@@ -14,7 +15,13 @@ document.addEventListener("DOMContentLoaded", function () {
     return;
   }
 
+  if (role !== "admin") {
+    redirectNonAdminToOwnTimesheet();
+    return;
+  }
+
   initializeEventListeners();
+  setAdminPageCopy();
   loadUsers();
 });
 
@@ -23,6 +30,15 @@ function authHeaders() {
     "Content-Type": "application/json",
     Authorization: `Bearer ${localStorage.getItem("access_token")}`,
   };
+}
+
+function notify(message, type = "info") {
+  if (window.appShell?.showNotice) {
+    window.appShell.showNotice(message, type);
+    return;
+  }
+
+  alert(message);
 }
 
 function handleAuthError(response) {
@@ -35,11 +51,50 @@ function handleAuthError(response) {
   }
 
   if (response.status === 403) {
-    alert("Geen toegang.");
+    if (role !== "admin") {
+      redirectNonAdminToOwnTimesheet();
+      return true;
+    }
+
+    notify("Geen toegang.", "warning");
     return true;
   }
 
   return false;
+}
+
+function redirectNonAdminToOwnTimesheet() {
+  if (!currentUsername) {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("username");
+    localStorage.removeItem("role");
+    window.location.href = "/index.html";
+    return;
+  }
+
+  window.location.replace(`timesheet.html?username=${encodeURIComponent(currentUsername)}`);
+}
+
+function setAdminPageCopy() {
+  const pageTitle = document.getElementById("users-page-title");
+  if (pageTitle) {
+    pageTitle.textContent = "Gebruikersbeheer";
+  }
+
+  const pageSubtitle = document.getElementById("users-page-subtitle");
+  if (pageSubtitle) {
+    pageSubtitle.innerHTML = '<span class="text-primary">Beheer,</span> open een gebruiker om te bewerken of voeg hier een nieuwe gebruiker toe.';
+  }
+
+  const cardTitle = document.getElementById("users-card-title");
+  if (cardTitle) {
+    cardTitle.innerHTML = '<i class="las la-users-cog"></i> Gebruikerslijst';
+  }
+
+  const cardDescription = document.getElementById("users-card-description");
+  if (cardDescription) {
+    cardDescription.textContent = "Alleen admins kunnen deze gebruikerslijst bekijken, bewerken en uitbreiden.";
+  }
 }
 
 function initializeEventListeners() {
@@ -95,7 +150,12 @@ function normalizeUser(user) {
   const firstName = user.first_name || "";
   const lastName = user.last_name || "";
   const username = user.username || "";
-  const badgeCodes = Array.isArray(user.badge_codes) ? user.badge_codes : [];
+  const normalizedBadgeCode = user.badge_code || "";
+  const badgeCodes = normalizedBadgeCode
+    ? [normalizedBadgeCode]
+    : Array.isArray(user.badge_codes)
+    ? user.badge_codes.filter(Boolean)
+    : [];
 
   return {
     username: username,
@@ -106,6 +166,7 @@ function normalizeUser(user) {
     email: user.email || "",
     user_role: user.user_role || user.role || "user",
     blocked: Boolean(user.blocked),
+    badge_code: normalizedBadgeCode,
     badge_codes: badgeCodes,
     primary_badge: badgeCodes[0] || "N/A",
     total_scans: Number(user.total_scans || 0),
@@ -166,11 +227,6 @@ function renderUsers() {
       </td>
       <td>
         <span class="badge badge-outline-primary">${escapeHtml(user.primary_badge)}</span>
-        ${
-          user.badge_codes.length > 1
-            ? `<small class="text-muted">+${user.badge_codes.length - 1} more</small>`
-            : ""
-        }
       </td>
       <td>
         <span class="badge badge-${statusClass}">${escapeHtml(user.activity_status)}</span>
@@ -282,12 +338,17 @@ function bindRowActions() {
 }
 
 function openTimesheet(username) {
+  if (role !== "admin") {
+    redirectNonAdminToOwnTimesheet();
+    return;
+  }
+
   window.location.href = `timesheet.html?username=${encodeURIComponent(username)}`;
 }
 
 function confirmDeleteUser(username) {
   if (role !== "admin") {
-    alert("Alleen admins mogen gebruikers verwijderen.");
+    notify("Alleen admins mogen gebruikers verwijderen.", "warning");
     return;
   }
 
@@ -299,7 +360,7 @@ function confirmDeleteUser(username) {
 
 function confirmBlockUser(username) {
   if (role !== "admin") {
-    alert("Alleen admins mogen gebruikers blokkeren.");
+    notify("Alleen admins mogen gebruikers blokkeren.", "warning");
     return;
   }
 
@@ -311,7 +372,7 @@ function confirmBlockUser(username) {
 
 function confirmUnblockUser(username) {
   if (role !== "admin") {
-    alert("Alleen admins mogen gebruikers deblokkeren.");
+    notify("Alleen admins mogen gebruikers deblokkeren.", "warning");
     return;
   }
 
@@ -336,11 +397,11 @@ async function blockUser(username) {
       throw new Error(result.error || result.message || "Unknown error occurred.");
     }
 
-    alert(result.message || "Gebruiker geblokkeerd.");
+    notify(result.message || "Gebruiker geblokkeerd.", "success");
     loadUsers();
   } catch (error) {
     console.error("Block user error:", error);
-    alert(error.message || "Er is een netwerkfout opgetreden.");
+    notify(error.message || "Er is een netwerkfout opgetreden.", "error");
   }
 }
 
@@ -359,11 +420,11 @@ async function unblockUser(username) {
       throw new Error(result.error || result.message || "Unknown error occurred.");
     }
 
-    alert(result.message || "Gebruiker gedeblokkeerd.");
+    notify(result.message || "Gebruiker gedeblokkeerd.", "success");
     loadUsers();
   } catch (error) {
     console.error("Unblock user error:", error);
-    alert(error.message || "Er is een netwerkfout opgetreden.");
+    notify(error.message || "Er is een netwerkfout opgetreden.", "error");
   }
 }
 
@@ -382,11 +443,11 @@ async function deleteUser(username) {
       throw new Error(result.error || result.message || "Unknown error occurred.");
     }
 
-    alert(result.message || "Gebruiker verwijderd.");
+    notify(result.message || "Gebruiker verwijderd.", "success");
     loadUsers();
   } catch (error) {
     console.error("Delete user error:", error);
-    alert(error.message || "Er is een netwerkfout opgetreden.");
+    notify(error.message || "Er is een netwerkfout opgetreden.", "error");
   }
 }
 
@@ -405,7 +466,7 @@ function filterUsers() {
         (user.display_name || "").toLowerCase().includes(searchTerm) ||
         (user.email || "").toLowerCase().includes(searchTerm) ||
         (user.company_name || "").toLowerCase().includes(searchTerm) ||
-        user.badge_codes.some((badge) => (badge || "").toLowerCase().includes(searchTerm))
+        (user.primary_badge || "").toLowerCase().includes(searchTerm)
       );
     });
   }
@@ -551,7 +612,7 @@ function updateUsersInfo() {
 
 function exportUsers() {
   if (allUsers.length === 0) {
-    alert("No users to export");
+    notify("Geen gebruikers om te exporteren.", "warning");
     return;
   }
 
