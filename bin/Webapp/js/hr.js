@@ -49,6 +49,7 @@
   function configureNavigation() {
     const items=state.me.can_hr?[['dashboard','Overzicht'],['hours','Urenoverzicht'],['review','Te controleren'],['settings','HR-instellingen']]:[['hours','Mijn uren']];
     $('navigation').innerHTML=items.map(([view,name])=>`<a href="hr.html?view=${view}" data-view="${view}" class="${state.view===view?'active':''}">${name}</a>`).join('')+(state.me.can_technical?'<a href="logs.html">Diagnose & koppelingen</a><a href="settings.html">Branding & technisch beheer</a><a href="user-list.html">Accounts & rechten</a>':'');
+    if(state.me.can_technical)$('navigation').insertAdjacentHTML('beforeend','<a href="loxone-sync.html">Loxone-synchronisatie</a>');
     $('identity').textContent=`${state.me.username} · ${state.me.role==='hr'?'HR':state.me.role==='technical_admin'?'Technisch beheer':state.me.role==='admin'?'Beheerder':'Medewerker'}`;
     document.querySelectorAll('.hr-only').forEach(e=>e.classList.toggle('hidden',!state.me.can_hr));
     if(!state.me.can_hr && state.me.role==='technical_admin'){

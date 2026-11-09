@@ -14,3 +14,6 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 # m h dom mon dow user  command
 59 11 * * * loxberry docker exec backend python /app/scripts/auto_stop_missing_badges.py >> /opt/loxberry/log/plugins/timetrackingplugin/auto_stop_missing_badges.log 2>&1
+# One host trigger; never start a scheduler in each Gunicorn worker. The DB lease
+# coalesces badge/correction notifications and enforces the configured interval.
+* * * * * loxberry flock -n /run/lock/timetracking-loxone-sync.lock docker exec backend python /app/scripts/loxone_sync.py >> /opt/loxberry/log/plugins/timetrackingplugin/loxone_sync.log 2>&1

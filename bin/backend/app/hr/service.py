@@ -156,6 +156,8 @@ class HRService:
             raise HRError('De gegevens zijn ondertussen gewijzigd. Vernieuw en probeer opnieuw.',409)
         if result.matched_count==0 and not result.upserted_id:
             raise HRError('De gegevens zijn ondertussen gewijzigd. Vernieuw en probeer opnieuw.',409)
+        from app.loxone_sync.bridge import notify_change
+        notify_change(self.db)
         return updated
 
     def mutate(self,data,actor,kind,operation,key):

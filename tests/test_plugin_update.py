@@ -140,6 +140,22 @@ class PluginUpdateTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'MongoDB is not running'):lifecycle.deploy(self.bin,'1.0.1')
         self.assertEqual(fake.call_count,1)
 
+    def test_sync_overlay_combines_with_preserved_local_compose(self):
+        (self.bin/'docker-compose.yml').write_text('local compose',encoding='utf-8')
+        (self.bin/'docker-compose.override.yml').write_text('local overrides',encoding='utf-8')
+        (self.bin/'docker-compose.loxone.yml').write_text('socket-only overlay',encoding='utf-8')
+        calls=[]
+        def fake(args,**kwargs):
+            calls.append(args)
+            if args[0]=='inspect':return 'true'
+            if args[:2]==['exec','webapp']:return (self.bin/'Webapp/version.json').read_text()
+            return ''
+        with patch.object(lifecycle,'docker',side_effect=fake),redirect_stdout(io.StringIO()):lifecycle.deploy(self.bin,'1.2.0')
+        build=next(c for c in calls if 'build' in c)
+        self.assertEqual(build[:7],['compose','-f','docker-compose.yml','-f','docker-compose.override.yml','-f','docker-compose.loxone.yml'])
+        self.assertNotIn('mongodb',build)
+        self.assertEqual((self.bin/'docker-compose.yml').read_text(),'local compose')
+
     @unittest.skipIf(os.name=='nt','Shell-hook subprocess smoke test runs on the Linux CI runner')
     def test_zip_hooks_preserve_state_and_activate_the_new_frontend(self):
         # Exercise the real shell hooks and Python CLI; only the Docker binary is fake.

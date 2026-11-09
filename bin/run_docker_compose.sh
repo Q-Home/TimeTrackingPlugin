@@ -42,4 +42,11 @@ fi
 # --- Start Docker Compose ---
 cd "$REPO_DIR" || exit 1
 echo "Starting Docker Compose services..."
-docker compose up -d --build
+compose_args=(-f docker-compose.yml)
+if [ -f docker-compose.override.yml ]; then
+  compose_args+=(-f docker-compose.override.yml)
+fi
+if [ -f docker-compose.loxone.yml ]; then
+  compose_args+=(-f docker-compose.loxone.yml)
+fi
+docker compose "${compose_args[@]}" up -d --build
