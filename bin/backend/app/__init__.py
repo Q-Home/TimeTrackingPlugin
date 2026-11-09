@@ -13,6 +13,7 @@ from app.routes.timesheet_routes import register_timesheet_routes
 from app.repositories.log_repository import LogRepository
 from app.repositories.user_repository import UserRepository
 from app.repositories.badge_repository import BadgeRepository
+from app.repositories.settings_repository import SettingsRepository
 
 from app.services.auth_service import AuthService
 from app.services.user_service import UserService
@@ -20,6 +21,7 @@ from app.services.badge_service import BadgeService
 from app.services.dashboard_service import DashboardService
 from app.services.index_service import IndexService
 from app.services.log_service import LogService
+from app.services.settings_service import SettingsService
 
 from app.routes.auth_routes import register_auth_routes
 from app.routes.user_routes import register_user_routes
@@ -27,6 +29,7 @@ from app.routes.badge_routes import register_badge_routes
 from app.routes.dashboard_routes import register_dashboard_routes
 from app.routes.health_routes import register_health_routes
 from app.routes.log_routes import register_log_routes
+from app.routes.settings_routes import register_settings_routes
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -45,14 +48,16 @@ def create_app():
     log_repository = LogRepository(mongo)
     user_repository = UserRepository(mongo)
     badge_repository = BadgeRepository(mongo)
+    settings_repository = SettingsRepository(mongo)
 
     auth_service = AuthService(user_repository, log_repository)
     user_service = UserService(user_repository, badge_repository, log_repository)
-    badge_service = BadgeService(badge_repository, log_repository)
+    badge_service = BadgeService(badge_repository, user_repository, log_repository)
     index_service = IndexService(user_repository, badge_repository, log_repository)
     timesheet_service = TimesheetService(badge_repository)
     dashboard_service = DashboardService(badge_repository, user_repository, timesheet_service, log_repository)
     log_service = LogService(log_repository)
+    settings_service = SettingsService(settings_repository, log_repository)
 
     app.register_blueprint(register_auth_routes(auth_service, Config.API_PREFIX))
     app.register_blueprint(register_user_routes(user_service, Config.API_PREFIX))
@@ -61,10 +66,12 @@ def create_app():
     app.register_blueprint(register_health_routes(mongo, Config.API_PREFIX))
     app.register_blueprint(register_timesheet_routes(timesheet_service, Config.API_PREFIX))
     app.register_blueprint(register_log_routes(log_service, Config.API_PREFIX))
+    app.register_blueprint(register_settings_routes(settings_service, Config.API_PREFIX))
     register_error_handlers(app)
 
     auth_service.create_default_admin()
     index_service.create_indexes()
+    settings_repository.create_indexes()
 
     logger.info("Application created successfully")
     return app

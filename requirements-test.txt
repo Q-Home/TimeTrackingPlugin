@@ -1,0 +1,4 @@
+-r bin/backend/requirements.txt
+mongomock==4.3.0
+paho-mqtt==2.1.0
+tzdata==2026.6

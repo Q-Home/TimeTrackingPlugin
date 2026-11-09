@@ -41,6 +41,9 @@ class TimesheetService:
                 "timestamp": timestamp.isoformat(),
                 "badge_code": badge.badge_code,
                 "username": badge.username,
+                "device_id": badge.device_id,
+                "location": badge.location,
+                "raw_data": badge.raw_data,
             })
 
             if action == "START":

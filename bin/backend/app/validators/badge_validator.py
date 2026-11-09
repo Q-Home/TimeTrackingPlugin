@@ -6,11 +6,7 @@ class BadgeValidator:
 
     @staticmethod
     def validate_create_badge(data):
-        badge_code = data.get("badge_code")
         action = str(data.get("action", "SCAN")).upper()
-
-        if not badge_code:
-            return error_response("badge_code is required", 400)
 
         if action not in BadgeValidator.VALID_ACTIONS:
             return error_response("Invalid badge action", 400)

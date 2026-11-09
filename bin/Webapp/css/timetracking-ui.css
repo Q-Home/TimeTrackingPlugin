@@ -7,6 +7,9 @@
   --tt-muted: #788278;
   --tt-accent: #4caf57;
   --tt-accent-dark: #379b45;
+  --tt-accent-soft: #eef8ef;
+  --tt-accent-border: #bfe5c4;
+  --tt-accent-rgb: 76, 175, 87;
   --tt-shadow: 0 18px 48px rgba(32, 34, 32, 0.08);
   --tt-radius: 24px;
   --tt-sidebar-width: 300px;
@@ -52,7 +55,7 @@ a {
   margin-bottom: 10px;
   padding: 6px 12px;
   border-radius: 999px;
-  background: #eef8ef;
+  background: var(--tt-accent-soft);
   color: var(--tt-accent-dark);
   font-size: 0.82rem;
   font-weight: 700;
@@ -89,8 +92,8 @@ a {
 }
 
 .tt-login-input:focus {
-  border-color: rgba(76, 175, 87, 0.45);
-  box-shadow: 0 0 0 4px rgba(76, 175, 87, 0.12);
+  border-color: rgba(var(--tt-accent-rgb), 0.45);
+  box-shadow: 0 0 0 4px rgba(var(--tt-accent-rgb), 0.12);
 }
 
 .tt-login-button {
@@ -102,7 +105,7 @@ a {
   color: #fff;
   font-size: 1.05rem;
   font-weight: 700;
-  box-shadow: 0 12px 28px rgba(76, 175, 87, 0.22);
+  box-shadow: 0 12px 28px rgba(var(--tt-accent-rgb), 0.22);
   transition: background 0.2s ease, transform 0.2s ease;
 }
 
@@ -183,7 +186,7 @@ a {
 
 .iq-sidebar .iq-menu li.active > a,
 .iq-sidebar .iq-menu li a:hover {
-  background: #eef8ef;
+  background: var(--tt-accent-soft);
   color: var(--tt-accent-dark);
 }
 
@@ -309,7 +312,7 @@ body.sidebar-main .iq-top-navbar,
 
 .btn-outline-primary {
   color: var(--tt-accent-dark);
-  border-color: #bfe5c4;
+  border-color: var(--tt-accent-border);
 }
 
 .btn-outline-primary:hover,
@@ -329,8 +332,8 @@ select.form-control {
 
 .form-control:focus,
 select.form-control:focus {
-  border-color: rgba(76, 175, 87, 0.45);
-  box-shadow: 0 0 0 4px rgba(76, 175, 87, 0.1);
+  border-color: rgba(var(--tt-accent-rgb), 0.45);
+  box-shadow: 0 0 0 4px rgba(var(--tt-accent-rgb), 0.1);
 }
 
 .tt-panel {
@@ -524,7 +527,7 @@ select.form-control:focus {
   gap: 8px;
   padding: 8px 12px;
   border-radius: 999px;
-  background: #f1f8f1;
+  background: var(--tt-accent-soft);
   color: var(--tt-accent-dark);
   font-size: 0.85rem;
   font-weight: 700;
@@ -572,7 +575,7 @@ select.form-control:focus {
 
 .tt-action-btn.btn-primary,
 .tt-action-btn.btn-success {
-  box-shadow: 0 10px 24px rgba(76, 175, 87, 0.16);
+  box-shadow: 0 10px 24px rgba(var(--tt-accent-rgb), 0.16);
 }
 
 .tt-action-btn.btn-outline-primary {
@@ -581,6 +584,19 @@ select.form-control:focus {
 
 .tt-action-btn i {
   font-size: 1rem;
+}
+
+.tt-color-input {
+  width: 96px;
+  min-height: 48px;
+  padding: 4px;
+}
+
+.tt-brand-preview {
+  padding: 22px;
+  border: 1px solid var(--tt-border);
+  border-radius: 18px;
+  background: var(--tt-surface-soft);
 }
 
 @media (max-width: 991px) {
