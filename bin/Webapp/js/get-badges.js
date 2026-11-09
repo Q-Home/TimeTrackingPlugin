@@ -5,7 +5,7 @@ let filters = {};
 let paginationInfo = null;
 
 const currentHost = window.location.hostname;
-const url = `http://${currentHost}:5000`;
+const url = window.location.origin;
 const apiUrl = `${url}/api/v1`;
 
 document.addEventListener("DOMContentLoaded", function () {

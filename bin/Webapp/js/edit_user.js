@@ -4,7 +4,7 @@ const username = urlParams.get("username");
 const role = (localStorage.getItem("role") || "").toLowerCase();
 const token = localStorage.getItem("access_token");
 const hostname = window.location.hostname;
-const url = `http://${hostname}:5000`;
+const url = window.location.origin;
 const apiUrl = `${url}/api/v1`;
 
 let originalUsername = "";

@@ -1,5 +1,5 @@
 const dashboardHost = window.location.hostname;
-const dashboardApiUrl = `http://${dashboardHost}:5000/api/v1`;
+const dashboardApiUrl = `${window.location.origin}/api/v1`;
 
 document.addEventListener("DOMContentLoaded", function () {
   const token = localStorage.getItem("access_token");

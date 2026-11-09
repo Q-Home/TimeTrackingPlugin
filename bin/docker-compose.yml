@@ -53,7 +53,7 @@ services:
     depends_on:
       - mongodb
     ports:
-      - "5000:5000"
+      - "${BACKEND_HOST_PORT:-5000}:5000"
     environment:
       # MongoDB URI ZONDER authenticatie
       - MONGO_URI=${MONGO_URI}
@@ -82,7 +82,7 @@ services:
       - mongodb
       - backend
     ports:
-      - "80:80"
+      - "${WEBAPP_HOST_PORT:-80}:80"
     networks:
       timetracking_net:
         ipv4_address: 172.28.0.30

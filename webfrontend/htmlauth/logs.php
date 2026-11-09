@@ -174,9 +174,70 @@ function readCommandOutput($command) {
     return $output;
 }
 
+function readMqttListenerConfig($allowedSettings) {
+    // Filter at the Docker command: passwords and unrelated environment values
+    // must never be returned to the web page, even if the container is stopped.
+    $settingChecks = array_map(function ($key) {
+        return '(eq $key ' . json_encode($key) . ')';
+    }, $allowedSettings);
+    $format = '{{println (json .State.Status)}}'
+        . '{{range .Config.Env}}{{$key := index (split . "=") 0}}'
+        . '{{if or ' . implode(' ', $settingChecks) . '}}{{println (json .)}}'
+        . '{{else if and (eq $key "MQTT_PASSWORD") (ne . "MQTT_PASSWORD=")}}'
+        . '{{println (json "MQTT_PASSWORD_CONFIGURED=true")}}{{end}}{{end}}';
+
+    $output = shell_exec('sudo -n docker inspect --type=container --format '
+        . escapeshellarg($format) . ' mqtt-listener 2>/dev/null');
+    $lines = explode("\n", trim((string) $output));
+    $status = json_decode(array_shift($lines), true);
+    if (!is_string($status) || $status === '') {
+        return null;
+    }
+
+    $config = ['status' => $status, 'settings' => [], 'password_configured' => false];
+    foreach ($lines as $line) {
+        $entry = json_decode($line, true);
+        if (!is_string($entry) || strpos($entry, '=') === false) {
+            continue;
+        }
+        [$key, $value] = explode('=', $entry, 2);
+        if ($key === 'MQTT_PASSWORD_CONFIGURED') {
+            $config['password_configured'] = $value === 'true';
+        } elseif (in_array($key, $allowedSettings, true)) {
+            $config['settings'][$key] = $value;
+        }
+    }
+    return $config;
+}
+
+$mqtt_setting_labels = [
+    'MQTT_BROKER' => 'Brokeradres',
+    'MQTT_PORT' => 'Poort',
+    'MQTT_USERNAME' => 'MQTT-gebruikersnaam',
+    'MQTT_TOPIC' => 'Topic voor badge-events',
+    'MQTT_STATS_TOPIC' => 'Topic voor statistiekvragen',
+    'MQTT_PUB_TOPIC' => 'Topic voor terugkoppeling',
+];
+$mqtt_config = readMqttListenerConfig(array_keys($mqtt_setting_labels));
+$mqtt_status_labels = [
+    'running' => 'Actief',
+    'restarting' => 'Herstart bezig',
+    'exited' => 'Gestopt',
+    'created' => 'Aangemaakt, nog niet gestart',
+    'paused' => 'Gepauzeerd',
+    'dead' => 'Uitgevallen',
+];
+
 $mqtt_docker_logs = readCommandOutput(
-    "cd " . escapeshellarg($docker_compose_path) . " && sudo docker compose logs --tail=200 mqtt-listener"
+    "cd " . escapeshellarg($docker_compose_path) . " && sudo -n docker compose logs --tail=1000 mqtt-listener"
 );
+$mqtt_docker_lines = array_filter(explode("\n", $mqtt_docker_logs), function ($line) {
+    return trim($line) !== '' && strpos($line, '[PRINT] Main loop heartbeat - ') === false;
+});
+$mqtt_docker_logs = implode("\n", array_slice($mqtt_docker_lines, -200));
+if ($mqtt_docker_logs === '') {
+    $mqtt_docker_logs = 'Geen recente meldingen buiten de periodieke heartbeat.';
+}
 ?>
 
 <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
@@ -184,7 +245,34 @@ $mqtt_docker_logs = readCommandOutput(
 
 <div class="container mt-5">
     <div class="col-lg-12">
-        
+
+        <section class="card mb-4" aria-labelledby="mqtt-diagnostics-title">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <h4 class="mb-0" id="mqtt-diagnostics-title"><i class="fas fa-satellite-dish" aria-hidden="true"></i> Diagnose Miniserver-koppeling</h4>
+                <button type="button" class="btn btn-outline-light btn-sm" onclick="refreshLogs()">Vernieuwen</button>
+            </div>
+            <div class="card-body">
+                <p>De plugin ontvangt badge-events via MQTT. De onderstaande aanmelding geldt voor de broker, niet voor de Miniserver zelf.</p>
+                <?php if ($mqtt_config === null): ?>
+                    <p class="alert alert-warning">De listenercontainer kon niet worden uitgelezen. Controleer bij <a href="settings.php">Settings</a> of de container bestaat en of Docker bereikbaar is.</p>
+                <?php else: ?>
+                    <dl class="row mb-2">
+                        <dt class="col-sm-5">Status listenercontainer</dt>
+                        <dd class="col-sm-7"><?= htmlspecialchars($mqtt_status_labels[$mqtt_config['status']] ?? $mqtt_config['status']) ?></dd>
+                        <?php foreach ($mqtt_setting_labels as $key => $label): ?>
+                            <?php $value = $mqtt_config['settings'][$key] ?? ''; ?>
+                            <dt class="col-sm-5"><?= htmlspecialchars($label) ?></dt>
+                            <dd class="col-sm-7 text-break"><?= htmlspecialchars($value === '' ? 'Niet ingesteld' : $value) ?></dd>
+                        <?php endforeach; ?>
+                        <dt class="col-sm-5">MQTT-wachtwoord</dt>
+                        <dd class="col-sm-7"><?= $mqtt_config['password_configured'] ? 'Ingesteld (verborgen)' : 'Niet ingesteld' ?></dd>
+                    </dl>
+                    <p class="small text-muted">Dit zijn de instellingen van de container. Een actieve container betekent dat het proces draait; de verbinding met de broker controleer je in de log.</p>
+                <?php endif; ?>
+                <p class="mb-0">Doe een testscan, vernieuw de pagina en kijk in de <a href="#mqtt-listener-output">listenerlog</a> naar <code>Received MQTT message</code> en de daaropvolgende API-melding. Voor oudere meldingen kun je de <a href="#mqtt-log">MQTT-log</a> raadplegen.</p>
+            </div>
+        </section>
+
         <!-- Docker Logs -->
         <div class="card mb-4">
             <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
@@ -237,7 +325,7 @@ $mqtt_docker_logs = readCommandOutput(
             </div>
         </div>
 
-        <div class="card mb-4">
+        <div class="card mb-4" id="mqtt-listener-output">
             <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
                 <h4 class="mb-0"><i class="fas fa-terminal"></i> MQTT Listener Container Output</h4>
                 <div>
@@ -251,7 +339,7 @@ $mqtt_docker_logs = readCommandOutput(
                     <?= formatLogContent($mqtt_docker_logs) ?>
                 </div>
                 <small class="text-muted mt-2 d-block">
-                    <i class="fas fa-info-circle"></i> Showing last 200 lines from `docker compose logs mqtt-listener`
+                    <i class="fas fa-info-circle"></i> Maximaal 200 meldingen uit de recente containeruitvoer. Herhaalde heartbeats worden overgeslagen.
                 </small>
             </div>
         </div>

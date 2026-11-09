@@ -2,7 +2,9 @@
 import os
 import time
 import json
+import tempfile
 import traceback
+from collections import deque
 from datetime import datetime, timezone
 import requests
 import paho.mqtt.client as mqtt
@@ -35,6 +37,42 @@ MQTT_LOG_PAYLOADS = os.getenv("MQTT_LOG_PAYLOADS", "true").lower() == "true"
 
 # Belgische tijdzone
 BELGIUM_TZ = ZoneInfo("Europe/Brussels")
+
+DIAGNOSTICS_FILE = os.path.join(DB_FOLDER, "mqtt_diagnostics.json")
+diagnostic_events = deque(maxlen=30)
+
+
+def record_diagnostic(event, code=None):
+    """Write a bounded snapshot for the dashboard, without badge payloads or secrets."""
+    diagnostic_events.appendleft({
+        "event": event,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "code": code if isinstance(code, int) else None,
+    })
+    snapshot = {
+        "broker": MQTT_BROKER,
+        "port": MQTT_PORT,
+        "username": MQTT_USERNAME,
+        "password_configured": bool(MQTT_PASSWORD),
+        "badge_topic": MQTT_TOPIC,
+        "stats_topic": MQTT_STATS_TOPIC,
+        "publish_topic": MQTT_PUB_TOPIC,
+        "events": list(diagnostic_events),
+    }
+    temporary_path = None
+    try:
+        os.makedirs(DB_FOLDER, exist_ok=True)
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=DB_FOLDER, delete=False) as temporary_file:
+            temporary_path = temporary_file.name
+            json.dump(snapshot, temporary_file)
+        os.replace(temporary_path, DIAGNOSTICS_FILE)
+    except OSError as exc:
+        print(f"[PRINT][WARNING] Could not update MQTT dashboard diagnostics: {exc}")
+        if temporary_path is not None:
+            try:
+                os.unlink(temporary_path)
+            except OSError:
+                pass
 
 
 def backend_headers():
@@ -185,11 +223,14 @@ def insert_to_db(badge_data):
         )
         response.raise_for_status()
 
+        event = "badge_saved" if response.status_code == 201 else "badge_unexpected_response"
+        record_diagnostic(event, response.status_code)
         log(f"Successfully sent badge data to API: {response.status_code}")
         print(f"[PRINT] API response: {response.status_code} {response.text}")
         return True
 
     except requests.exceptions.RequestException as e:
+        record_diagnostic("badge_api_error", e.response.status_code if e.response is not None else None)
         error_msg = f"API request failed: {e}"
         print(f"[PRINT][ERROR] {error_msg}")
         log(error_msg)
@@ -211,6 +252,7 @@ def get_user_logs(username):
         print(f"[PRINT] Found {len(logs)} logs for {username}")
         log(f"Found {len(logs)} logs for {username}")
     except requests.exceptions.RequestException as e:
+        record_diagnostic("stats_api_error", e.response.status_code if e.response is not None else None)
         error_msg = f"API request failed: {e}"
         print(f"[PRINT][ERROR] {error_msg}")
         log(error_msg)
@@ -235,29 +277,46 @@ def publish_to_loxone(client, badgecode, user, scan_time, status):
 def on_connect(client, userdata, flags, rc, properties=None):
     print(f"[PRINT] on_connect called with rc={rc}")
     if rc == 0:
+        record_diagnostic("connected")
         log("Connected to MQTT broker successfully.")
         print(f"[PRINT] Subscribing to {MQTT_TOPIC} and {MQTT_STATS_TOPIC}")
         client.subscribe(MQTT_TOPIC)
         client.subscribe(MQTT_STATS_TOPIC)
         log(f"Subscribed to topics: {MQTT_TOPIC} and {MQTT_STATS_TOPIC}")
     else:
+        record_diagnostic("connection_refused", getattr(rc, "value", rc))
         log(f"Failed to connect to MQTT broker, return code {rc}")
         print(f"[PRINT][ERROR] Failed to connect to MQTT broker, rc={rc}")
 
 
 def on_disconnect(client, userdata, disconnect_flags, rc, properties=None):
+    record_diagnostic("disconnected", getattr(rc, "value", rc))
     log(f"Disconnected from MQTT broker. rc={rc}")
     print(f"[PRINT][WARNING] MQTT disconnected rc={rc}")
 
 
 def on_subscribe(client, userdata, mid, reason_code_list, properties=None):
+    failed = next((code for code in reason_code_list if code.is_failure), None)
+    if failed is not None:
+        record_diagnostic("subscription_refused", failed.value)
+    else:
+        record_diagnostic("subscribed")
     log(f"MQTT subscribe acknowledged. mid={mid}, reason_codes={reason_code_list}")
     print(f"[PRINT] MQTT subscribe acknowledged. mid={mid}, reason_codes={reason_code_list}")
 
 def on_message(client, userdata, msg):
     print(f"[PRINT] on_message called. Topic: {msg.topic}, Payload length: {len(msg.payload)}")
-    payload = msg.payload.decode().strip()
     topic = msg.topic
+    if topic == MQTT_TOPIC:
+        record_diagnostic("badge_received")
+    elif topic == MQTT_STATS_TOPIC:
+        record_diagnostic("stats_received")
+    try:
+        payload = msg.payload.decode().strip()
+    except UnicodeDecodeError:
+        record_diagnostic("invalid_payload")
+        log("[ERROR] Ignored MQTT message: invalid UTF-8")
+        return
     if MQTT_LOG_PAYLOADS:
         log(f"Received MQTT message on topic '{topic}': {payload}")
     else:
@@ -296,6 +355,7 @@ def on_message(client, userdata, msg):
                         "status": "Access Denied"
                     }
                 else:
+                    record_diagnostic("invalid_payload")
                     print(f"[PRINT][ERROR] Ignored malformed message: {payload}")
                     log(f"Ignored malformed message: {payload}")
                     badge_data = None
@@ -321,6 +381,7 @@ def on_message(client, userdata, msg):
                                   badge_data.get("status", "Access Granted"))
 
         except Exception as e:
+            record_diagnostic("processing_error")
             print(f"[PRINT][ERROR] Failed to process badge data: {e}")
             log_exception("Failed to process badge data", e)
 
@@ -343,6 +404,7 @@ def on_message(client, userdata, msg):
 # ---------------- Main Loop ----------------
 def main():
     print("[PRINT] main() started")
+    record_diagnostic("starting")
     log("Starting timetracking MQTT script...")
     log(f"MongoDB URI: {MONGO_URI}")
     log(f"MQTT Broker: {MQTT_BROKER}:{MQTT_PORT}")
@@ -365,6 +427,7 @@ def main():
         print(f"[PRINT] Connecting to MQTT broker at {MQTT_BROKER}:{MQTT_PORT}...")
         client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
     except Exception as e:
+        record_diagnostic("connection_error", getattr(e, "errno", None))
         print(f"[PRINT][ERROR] MQTT connection error: {e}")
         log(f"MQTT connection error: {e}")
         return
@@ -387,6 +450,7 @@ def main():
         print("[PRINT] Stopping MQTT loop and disconnecting client.")
         client.loop_stop()
         client.disconnect()
+        record_diagnostic("stopped")
         log("MQTT client disconnected.")
 
 if __name__ == "__main__":

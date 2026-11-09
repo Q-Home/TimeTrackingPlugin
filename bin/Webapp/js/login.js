@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", function () {
   const hostname = window.location.hostname;
-  const url = `http://${hostname}:5000`;
+  const url = window.location.origin;
   const loginError = document.getElementById("loginError");
   const loadingOverlay = document.getElementById("loading");
 

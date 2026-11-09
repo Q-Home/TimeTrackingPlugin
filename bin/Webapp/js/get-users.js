@@ -1,5 +1,5 @@
 const hostname = window.location.hostname;
-const url = `http://${hostname}:5000`;
+const url = window.location.origin;
 const token = localStorage.getItem("access_token");
 const role = (localStorage.getItem("role") || "").toLowerCase();
 const currentUsername = localStorage.getItem("username") || "";

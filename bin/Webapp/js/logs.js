@@ -1,7 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   const shell = window.appShell || {};
-  const hostname = window.location.hostname;
-  const apiBase = `http://${hostname}:5000/api/v1`;
+  const apiBase = `${window.location.origin}/api/v1`;
   const logsEndpoint = `${apiBase}/logs/?limit=1000`;
 
   const tableBody = document.querySelector(".js-Logs");
@@ -10,6 +9,30 @@ document.addEventListener("DOMContentLoaded", () => {
   const logTypeFilter = document.getElementById("logTypeFilter");
   const exportBtn = document.getElementById("exportLogsBtn");
   const printBtn = document.getElementById("printLogsBtn");
+  const refreshMqttBtn = document.getElementById("refreshMqttLogsBtn");
+  const mqttStatus = document.getElementById("mqttDiagnosticsStatus");
+  const mqttDetails = document.getElementById("mqttDiagnosticsDetails");
+  const mqttSettings = document.getElementById("mqttDiagnosticsSettings");
+  const mqttEvents = document.getElementById("mqttDiagnosticsEvents");
+
+  const mqttEventLabels = new Map([
+    ["starting", "Listener gestart"],
+    ["connected", "Verbonden met MQTT-broker"],
+    ["connection_error", "Broker niet bereikbaar. Controleer adres, poort en netwerk."],
+    ["connection_refused", "Broker heeft de verbinding geweigerd. Controleer ook de aanmelding."],
+    ["disconnected", "Verbinding met de broker verbroken"],
+    ["subscribed", "Broker heeft het topicabonnement bevestigd"],
+    ["subscription_refused", "Broker heeft het topicabonnement geweigerd"],
+    ["badge_received", "Badge-event ontvangen"],
+    ["badge_saved", "Badge-event opgeslagen door de API"],
+    ["badge_api_error", "Badge-event niet opgeslagen: API-aanroep mislukt"],
+    ["badge_unexpected_response", "Onverwacht antwoord van de API. Opslag niet bevestigd."],
+    ["invalid_payload", "MQTT-bericht heeft een ongeldig formaat"],
+    ["processing_error", "Fout bij het verwerken van het badge-event"],
+    ["stats_received", "Statistiekvraag ontvangen"],
+    ["stats_api_error", "API-aanroep voor statistiekvraag mislukt"],
+    ["stopped", "Listener gestopt"],
+  ]);
 
   const logsPerPage = 20;
   let currentPage = 1;
@@ -43,6 +66,48 @@ document.addEventListener("DOMContentLoaded", () => {
     const date = new Date(timestamp);
     if (Number.isNaN(date.getTime())) return timestamp;
     return date.toLocaleString("nl-BE");
+  }
+
+  async function fetchMqttDiagnostics() {
+    refreshMqttBtn.disabled = true;
+    mqttDetails.hidden = true;
+    mqttStatus.textContent = "MQTT-diagnose laden…";
+    try {
+      const response = await fetch(`${apiBase}/logs/mqtt`, { headers: authHeaders(), cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const { data } = await response.json();
+      if (!data?.available) {
+        mqttStatus.textContent = "Nog geen MQTT-meldingen beschikbaar. Controleer of de bijgewerkte listener is gestart.";
+        return;
+      }
+
+      const settings = [
+        ["MQTT-broker", data.broker],
+        ["Poort", data.port],
+        ["MQTT-gebruikersnaam", data.username],
+        ["MQTT-wachtwoord", data.password_configured ? "Ingesteld (verborgen)" : "Niet ingesteld"],
+        ["Topic voor badge-events", data.badge_topic],
+        ["Topic voor statistiekvragen", data.stats_topic],
+        ["Topic voor terugkoppeling", data.publish_topic],
+      ];
+      mqttSettings.innerHTML = settings.map(([label, value]) =>
+        `<dt class="col-sm-4">${label}</dt><dd class="col-sm-8 text-break">${escapeHtml(value || "Niet ingesteld")}</dd>`
+      ).join("");
+
+      mqttEvents.innerHTML = data.events.map(({ event, timestamp, code }) =>
+        `<tr><td>${escapeHtml(formatTimestamp(timestamp))}</td>` +
+        `<td>${escapeHtml(mqttEventLabels.get(event) || "Onbekende gebeurtenis")}</td>` +
+        `<td>${escapeHtml(String(code ?? "–"))}</td></tr>`
+      ).join("");
+      mqttStatus.textContent = "Laatste gebeurtenissen sinds de listener werd gestart. Doe een testscan en klik daarna op Vernieuw MQTT-log.";
+      mqttDetails.hidden = false;
+    } catch (error) {
+      mqttStatus.textContent = `De MQTT-diagnose kon niet worden geladen (${error.message}).`;
+    } finally {
+      refreshMqttBtn.disabled = false;
+    }
   }
 
   function getFilteredLogs() {
@@ -222,5 +287,9 @@ document.addEventListener("DOMContentLoaded", () => {
     window.print();
   });
 
+  if (refreshMqttBtn) {
+    refreshMqttBtn.addEventListener("click", fetchMqttDiagnostics);
+    fetchMqttDiagnostics();
+  }
   fetchLogs();
 });

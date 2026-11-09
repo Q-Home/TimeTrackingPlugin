@@ -139,7 +139,31 @@
       <div id="content-page" class="content-page">
          <div class="container-fluid">
             <div class="row">
-
+               <div class="col-sm-12">
+                  <section class="iq-card" aria-labelledby="mqttDiagnosticsTitle">
+                     <div class="iq-card-header d-flex justify-content-between align-items-center flex-wrap">
+                        <h4 class="card-title mb-0" id="mqttDiagnosticsTitle">Diagnose Miniserver-koppeling</h4>
+                        <button type="button" id="refreshMqttLogsBtn" class="btn btn-outline-primary btn-sm">Vernieuw MQTT-log</button>
+                     </div>
+                     <div class="iq-card-body">
+                        <p>Volg de verbinding met de MQTT-broker en zie of badge-events aankomen en worden opgeslagen.</p>
+                        <p id="mqttDiagnosticsStatus" role="status">MQTT-diagnose laden…</p>
+                        <div id="mqttDiagnosticsDetails" hidden>
+                           <dl class="row" id="mqttDiagnosticsSettings"></dl>
+                           <p class="text-muted small">De gebruikersnaam is van de MQTT-broker. De plugin meldt niet rechtstreeks aan op de Miniserver.</p>
+                           <div class="table-responsive">
+                              <table class="table table-striped mb-0">
+                                 <caption class="sr-only">Laatste MQTT-gebeurtenissen sinds de listener werd gestart</caption>
+                                 <thead>
+                                    <tr><th scope="col">Tijdstip</th><th scope="col">Gebeurtenis</th><th scope="col">Code</th></tr>
+                                 </thead>
+                                 <tbody id="mqttDiagnosticsEvents"></tbody>
+                              </table>
+                           </div>
+                        </div>
+                     </div>
+                  </section>
+               </div>
                <div class="col-sm-12">
                   <div class="iq-card">
                      <div class="iq-card-header d-flex justify-content-between">

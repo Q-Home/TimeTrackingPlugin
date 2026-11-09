@@ -28,7 +28,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const hostname = window.location.hostname;
-  const url = `http://${hostname}:5000`;
+  const url = window.location.origin;
   const apiUrl = `${url}/api/v1`;
 
   const form = document.querySelector(".new-user-info form");

@@ -12,7 +12,7 @@ let dailyHoursChart = null;
 let hoursBreakdownChart = null;
 
 const currentHost = window.location.hostname;
-const url = `http://${currentHost}:5000`;
+const url = window.location.origin;
 const apiUrl = `${url}/api/v1`;
 const displayTimeZone = "Europe/Brussels";
 

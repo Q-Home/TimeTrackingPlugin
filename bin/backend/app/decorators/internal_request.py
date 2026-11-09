@@ -34,6 +34,11 @@ def is_trusted_internal_request():
     if has_valid_internal_api_key():
         return True
 
+    # Browser requests proxied by the webapp still require JWT authentication,
+    # even though Nginx itself belongs to a trusted Docker subnet.
+    if request.headers.get("X-TimeTracking-Public-Request"):
+        return False
+
     remote_addr = request.remote_addr
     if not remote_addr:
         return False

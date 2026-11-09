@@ -1,5 +1,11 @@
+import json
+from pathlib import Path
+
 from app.utils.date_helper import DateHelper
 from app.utils.response import success_response, error_response
+
+
+MQTT_DIAGNOSTICS_FILE = Path(__file__).resolve().parents[2] / "logs" / "mqtt_diagnostics.json"
 
 
 class LogService:
@@ -23,3 +29,17 @@ class LogService:
             }, "Logs retrieved successfully")
         except Exception as exc:
             return error_response(f"Failed to retrieve logs: {exc}", 500)
+
+    def get_mqtt_diagnostics(self):
+        try:
+            with MQTT_DIAGNOSTICS_FILE.open(encoding="utf-8") as source:
+                snapshot = json.load(source)
+        except FileNotFoundError:
+            return success_response({"available": False})
+        except (OSError, ValueError):
+            return error_response("MQTT diagnostics could not be read", 503)
+
+        if not isinstance(snapshot, dict) or not isinstance(snapshot.get("events"), list):
+            return error_response("MQTT diagnostics could not be read", 503)
+
+        return success_response({**snapshot, "available": True})
