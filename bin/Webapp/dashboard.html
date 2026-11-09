@@ -7,7 +7,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="X-Frame-Options" content="DENY">
   <meta http-equiv="X-XSS-Protection" content="1; mode=block">
-  <title>Admin Dashboard - Q-Home</title>
+  <title>Admin Dashboard - Time Tracking System</title>
   <link rel="icon" type="image/svg+xml" href="images/timetracking-favicon.svg" />
   <link rel="shortcut icon" href="images/timetracking-favicon.svg" />
   <link rel="stylesheet" href="css/bootstrap.min.css">
@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/responsive.css">
   <link rel="stylesheet" href="css/timetracking-ui.css">
+  <script src="js/branding.js"></script>
 </head>
 
 <body data-page="dashboard" data-admin-page="true">
@@ -26,9 +27,10 @@
     <div class="iq-sidebar">
       <div class="iq-sidebar-logo d-flex justify-content-between">
         <a href="dashboard.html" class="header-logo tt-shell-brand">
-          <img src="images/logo.png" class="img-fluid" alt="Logo">
+          <span class="tt-brand-mark" aria-hidden="true"></span>
           <div class="tt-shell-brand__text">
-            <span class="tt-shell-brand__title">Q-Home</span>
+            <span class="tt-shell-brand__eyebrow">Q-Home</span>
+            <span class="tt-shell-brand__title">TimeTracking</span>
           </div>
         </a>
       </div>
@@ -58,8 +60,8 @@
           <div class="navbar-breadcrumb w-100">
             <div class="tt-page-heading">
               <div class="tt-page-heading__copy">
-                <h4 class="mb-0 text-dark">Admin Dashboard</h4>
-                <p class="mb-0"><span class="text-primary">Overzicht,</span> zie wie aanwezig is, wat er vandaag gebeurde en waar de drukte zit.</p>
+                <h4 class="mb-0 text-dark">Dashboard</h4>
+                <p class="mb-0">Aanwezigheid, badgeactiviteit en locaties.</p>
               </div>
               <div class="tt-page-actions">
                 <a href="user-list.html" class="btn btn-outline-primary btn-sm"><i class="las la-users mr-1"></i>Gebruikers beheren</a>
@@ -68,9 +70,6 @@
             </div>
           </div>
 
-          <div class="collapse navbar-collapse" id="navbarSupportedContent">
-            <ul class="navbar-nav ml-auto navbar-list"></ul>
-          </div>
           <ul class="navbar-list">
             <li class="line-height">
               <a href="#" class="search-toggle iq-waves-effect d-flex align-items-center">
@@ -107,103 +106,40 @@
 
     <div id="content-page" class="content-page">
       <div class="container-fluid">
-        <div class="row mb-4">
-          <div class="col-lg-3 col-md-6">
-            <div class="iq-card">
-              <div class="iq-card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                  <div>
-                    <span class="text-muted">Aanwezig nu</span>
-                    <h3 class="mb-0" id="stat-present-now">-</h3>
-                  </div>
-                  <div class="icon iq-icon-box-2 bg-success">
-                    <i class="las la-user-check text-white"></i>
-                  </div>
-                </div>
-              </div>
+        <section class="tt-overview" aria-labelledby="attendanceTitle">
+          <div class="tt-overview__header">
+            <div>
+              <p class="tt-kicker">Aanwezigheid</p>
+              <h2 id="attendanceTitle">Vandaag in het gebouw</h2>
+            </div>
+            <p class="mb-0 text-muted">Gebaseerd op geregistreerde badge-scans.</p>
+          </div>
+          <div class="tt-overview__grid">
+            <div class="tt-metric">
+              <span class="tt-metric__icon" aria-hidden="true"><i class="las la-user-check"></i></span>
+              <div><span class="tt-metric__label">Aanwezig nu</span><strong class="tt-metric__value" id="stat-present-now">–</strong></div>
+            </div>
+            <div class="tt-metric">
+              <span class="tt-metric__icon tt-metric__icon--break" aria-hidden="true"><i class="las la-mug-hot"></i></span>
+              <div><span class="tt-metric__label">Op pauze</span><strong class="tt-metric__value" id="stat-on-break">–</strong></div>
+            </div>
+            <div class="tt-metric">
+              <span class="tt-metric__icon" aria-hidden="true"><i class="las la-users"></i></span>
+              <div><span class="tt-metric__label">Vandaag actief</span><strong class="tt-metric__value" id="stat-active-today">–</strong></div>
+            </div>
+            <div class="tt-metric">
+              <span class="tt-metric__icon tt-metric__icon--occupancy" aria-hidden="true"><i class="las la-chart-pie"></i></span>
+              <div><span class="tt-metric__label">Bezetting</span><strong class="tt-metric__value"><span id="stat-occupancy-rate">–</span>%</strong></div>
             </div>
           </div>
-          <div class="col-lg-3 col-md-6">
-            <div class="iq-card">
-              <div class="iq-card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                  <div>
-                    <span class="text-muted">Op pauze</span>
-                    <h3 class="mb-0" id="stat-on-break">-</h3>
-                  </div>
-                  <div class="icon iq-icon-box-2 bg-warning">
-                    <i class="las la-mug-hot text-white"></i>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-3 col-md-6">
-            <div class="iq-card">
-              <div class="iq-card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                  <div>
-                    <span class="text-muted">Vandaag actief</span>
-                    <h3 class="mb-0" id="stat-active-today">-</h3>
-                  </div>
-                  <div class="icon iq-icon-box-2 bg-primary">
-                    <i class="las la-building text-white"></i>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-3 col-md-6">
-            <div class="iq-card">
-              <div class="iq-card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                  <div>
-                    <span class="text-muted">Bezetting</span>
-                    <h3 class="mb-0"><span id="stat-occupancy-rate">-</span>%</h3>
-                  </div>
-                  <div class="icon iq-icon-box-2 bg-info">
-                    <i class="las la-chart-pie text-white"></i>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        </section>
 
-        <div class="row mb-4">
-          <div class="col-lg-3 col-md-6">
-            <div class="iq-card">
-              <div class="iq-card-body">
-                <span class="text-muted">Scans vandaag</span>
-                <h4 class="mb-0" id="stat-scans-today">-</h4>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-3 col-md-6">
-            <div class="iq-card">
-              <div class="iq-card-body">
-                <span class="text-muted">Starts vandaag</span>
-                <h4 class="mb-0" id="stat-starts-today">-</h4>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-3 col-md-6">
-            <div class="iq-card">
-              <div class="iq-card-body">
-                <span class="text-muted">Stops vandaag</span>
-                <h4 class="mb-0" id="stat-stops-today">-</h4>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-3 col-md-6">
-            <div class="iq-card">
-              <div class="iq-card-body">
-                <span class="text-muted">Laatste uur</span>
-                <h4 class="mb-0" id="stat-last-hour">-</h4>
-              </div>
-            </div>
-          </div>
-        </div>
+        <dl class="tt-activity-totals" aria-label="Samenvatting badgeactiviteit">
+          <div><dt class="tt-metric__label">Scans vandaag</dt><dd id="stat-scans-today">–</dd></div>
+          <div><dt class="tt-metric__label">Starts vandaag</dt><dd id="stat-starts-today">–</dd></div>
+          <div><dt class="tt-metric__label">Stops vandaag</dt><dd id="stat-stops-today">–</dd></div>
+          <div><dt class="tt-metric__label">Scans afgelopen uur</dt><dd id="stat-last-hour">–</dd></div>
+        </dl>
 
         <div class="row">
           <div class="col-lg-6">
@@ -229,7 +165,7 @@
                 </div>
               </div>
               <div class="iq-card-body">
-                <div id="dashboard-locations" class="row"></div>
+                <div id="dashboard-locations" class="tt-location-grid"></div>
               </div>
             </div>
           </div>
@@ -277,7 +213,6 @@
   <script src="js/jquery.magnific-popup.min.js"></script>
   <script src="js/select2.min.js"></script>
   <script src="js/custom.js"></script>
-  <script src="js/branding.js"></script>
   <script src="js/app-shell.js"></script>
   <script src="js/dashboard.js"></script>
 </body>

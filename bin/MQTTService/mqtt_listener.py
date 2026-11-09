@@ -305,18 +305,23 @@ def on_subscribe(client, userdata, mid, reason_code_list, properties=None):
     print(f"[PRINT] MQTT subscribe acknowledged. mid={mid}, reason_codes={reason_code_list}")
 
 def on_message(client, userdata, msg):
-    print(f"[PRINT] on_message called. Topic: {msg.topic}, Payload length: {len(msg.payload)}")
     topic = msg.topic
-    if topic == MQTT_TOPIC:
-        record_diagnostic("badge_received")
-    elif topic == MQTT_STATS_TOPIC:
-        record_diagnostic("stats_received")
     try:
         payload = msg.payload.decode().strip()
     except UnicodeDecodeError:
         record_diagnostic("invalid_payload")
         log("[ERROR] Ignored MQTT message: invalid UTF-8")
         return
+
+    # A sender can clear the badge topic after a scan. An empty update is not a scan.
+    if topic == MQTT_TOPIC and not payload:
+        return
+
+    print(f"[PRINT] on_message called. Topic: {topic}, Payload length: {len(msg.payload)}")
+    if topic == MQTT_TOPIC:
+        record_diagnostic("badge_received")
+    elif topic == MQTT_STATS_TOPIC:
+        record_diagnostic("stats_received")
     if MQTT_LOG_PAYLOADS:
         log(f"Received MQTT message on topic '{topic}': {payload}")
     else:

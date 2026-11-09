@@ -84,16 +84,16 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const settings = [
-        ["MQTT-broker", data.broker],
+        ["Broker", data.broker],
         ["Poort", data.port],
-        ["MQTT-gebruikersnaam", data.username],
-        ["MQTT-wachtwoord", data.password_configured ? "Ingesteld (verborgen)" : "Niet ingesteld"],
-        ["Topic voor badge-events", data.badge_topic],
-        ["Topic voor statistiekvragen", data.stats_topic],
-        ["Topic voor terugkoppeling", data.publish_topic],
+        ["Gebruikersnaam", data.username],
+        ["Wachtwoord", data.password_configured ? "Ingesteld (verborgen)" : "Niet ingesteld"],
+        ["Badge-topic", data.badge_topic],
+        ["Statistiek-topic", data.stats_topic],
+        ["Terugkoppeling", data.publish_topic],
       ];
       mqttSettings.innerHTML = settings.map(([label, value]) =>
-        `<dt class="col-sm-4">${label}</dt><dd class="col-sm-8 text-break">${escapeHtml(value || "Niet ingesteld")}</dd>`
+        `<dt>${label}</dt><dd>${escapeHtml(value || "Niet ingesteld")}</dd>`
       ).join("");
 
       mqttEvents.innerHTML = data.events.map(({ event, timestamp, code }) =>
