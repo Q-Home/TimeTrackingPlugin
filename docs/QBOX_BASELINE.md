@@ -98,3 +98,41 @@ certification and does not change existing registrations.
 
 The automatic STOP tests use synthetic records in memory. They neither validate
 the correctness of historical corrections nor decide company timekeeping policy.
+
+
+## ZIP updates: preserve settings and activate images (plugin 1.0.1)
+
+LoxBerry replaces plugin files during a ZIP upgrade. Replacing source files alone
+does not change the files copied into an already-running Docker image. Earlier
+versions left the activation call commented out, so a GUI update could install
+successfully while the old webapp was still served.
+
+`preroot.sh` now saves the local Compose file, overrides, environment files, plugin
+config/data and the bind-mounted application logs into a private directory inside
+the temporary installation archive before replacement. `postroot.sh` restores that
+state and builds/recreates backend, MQTT listener and webapp. MongoDB is never
+included in the recreate command and no volumes are removed. This is configuration
+preservation, not a database backup or transactional rollback.
+
+When the old `.env` is missing but the installed Compose needs variables, the
+helper can reconstruct the required settings from the existing Docker containers.
+It writes a private `.env`, quotes password dollar signs literally, and does not
+display credentials. An incomplete recovery stops activation with a visible
+installer warning; it does not silently substitute example settings.
+
+Builds happen before running application containers are replaced. A failed build
+leaves those containers running. A later start failure is reported and may require
+manual recovery; the helper does not claim atomic rollback of three services.
+The database must already be running for automatic activation. On a fresh install,
+configure the database and local settings before starting the application.
+
+After activation the helper verifies `/usr/share/nginx/html/version.json` inside
+the running webapp. The webapp serves this as `/version.json`, with the plugin
+version, a frontend source fingerprint and a build time. Static responses require
+browser revalidation; use Ctrl+F5 once when coming from an old cached version.
+The plugin installer log contains a success marker only after version verification.
+
+Download a new ZIP of `main` after this fix; reinstalling an older downloaded ZIP
+cannot include it. Each subsequent packaged release should bump plugin.cfg's
+version and be tested through the same ZIP upgrade path with representative local
+settings. The legacy release.cfg URLs remain a separate automatic-update task.
