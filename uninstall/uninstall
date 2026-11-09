@@ -20,6 +20,9 @@ PSBIN=$LBPSBIN/$PDIR
 PBIN=$LBPBIN/$PDIR
 
 # your code goes here
+if command -v systemctl >/dev/null 2>&1; then
+    sudo systemctl disable --now timetracking-loxone.service || true
+fi
 REPO_DIR="/opt/loxberry/bin/plugins/TimeTrackingPlugin"
 # --- Start Docker Compose ---
 cd "$REPO_DIR" || exit 1

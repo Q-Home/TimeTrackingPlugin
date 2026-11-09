@@ -154,6 +154,7 @@
       }
     });
     redirectAdminPageIfNeeded();
+    if(['admin','technical_admin'].includes(shell.role))document.querySelectorAll('#iq-sidebar-toggle').forEach(menu=>{const item=document.createElement('li');const link=document.createElement('a');link.href='loxone-sync.html';link.textContent='Loxone-synchronisatie';item.appendChild(link);menu.appendChild(item);});
     ensureAdminSettingsNav();
     applyRoleVisibility();
     applyProfileBox();

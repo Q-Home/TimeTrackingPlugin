@@ -50,6 +50,11 @@ def create_app():
     app.extensions['hr_service'] = hr_service
     app.register_blueprint(register_hr_routes(hr_service, Config.API_PREFIX))
     register_hr_errors(app)
+    from app.loxone_sync.service import SyncService
+    from app.loxone_sync.routes import routes as sync_routes
+    sync_service = SyncService(mongo.db, hr_service)
+    app.extensions['loxone_sync'] = sync_service
+    app.register_blueprint(sync_routes(sync_service, Config.API_PREFIX))
 
     log_repository = LogRepository(mongo)
     user_repository = UserRepository(mongo)

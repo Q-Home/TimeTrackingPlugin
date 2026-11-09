@@ -1,0 +1,6 @@
+# Explicit supplementary file. The installer combines it with preserved local
+# Compose files. Only backend can reach the private, command-limited host socket.
+services:
+  backend:
+    volumes:
+      - /run/timetracking-loxone:/run/timetracking-loxone:ro

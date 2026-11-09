@@ -149,12 +149,18 @@ def deploy(plugin_bin, version):
     running = docker(['inspect','mongodb','--format','{{.State.Running}}'],capture=True)
     if running.strip() != 'true':
         raise ValueError('MongoDB is not running; configure/start the installation before applying application images')
-    docker(['compose','config','--quiet'],cwd=plugin_bin)
+    compose = ['compose']
+    if (plugin_bin/'docker-compose.loxone.yml').is_file():
+        compose += ['-f','docker-compose.yml']
+        if (plugin_bin/'docker-compose.override.yml').is_file():
+            compose += ['-f','docker-compose.override.yml']
+        compose += ['-f','docker-compose.loxone.yml']
+    docker([*compose,'config','--quiet'],cwd=plugin_bin)
     expected = write_version(plugin_bin,version)
     # Build first: a build failure must leave current containers running.
-    docker(['compose','build',*SERVICES],cwd=plugin_bin)
+    docker([*compose,'build',*SERVICES],cwd=plugin_bin)
     # Never recreate MongoDB or remove its volumes as part of a GUI/plugin update.
-    docker(['compose','up','-d','--no-deps','--force-recreate',*SERVICES],cwd=plugin_bin)
+    docker([*compose,'up','-d','--no-deps','--force-recreate',*SERVICES],cwd=plugin_bin)
     actual = json.loads(docker(['exec','webapp','cat','/usr/share/nginx/html/version.json'],capture=True))
     if actual != expected:
         raise ValueError('Application restart finished but the served frontend version does not match; inspect deployment logs')
@@ -173,6 +179,12 @@ def main():
         if args.phase=='backup':backup(args.home,args.folder,args.archive)
         else:
             p = restore(args.home,args.folder,args.archive)
+            host_installer = p['bin']/'host/install_adapter.py'
+            if host_installer.is_file():
+                try:
+                    subprocess.run([sys.executable,str(host_installer),args.home,args.folder],check=True)
+                except (OSError, subprocess.CalledProcessError):
+                    print('<WARNING> Loxone host adapter unavailable. Timekeeping can run; synchronization remains unavailable until host setup is repaired.')
             deploy(p['bin'],args.version)
         return 0
     except Exception as exc:

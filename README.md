@@ -8,6 +8,7 @@ security or time-calculation issues are resolved.
 
 ## Documentation
 
+- [Loxone user totals: setup, versions, diagnosis and limitations (1.2.0)](docs/LOXONE_USER_HOURS_SYNC.md)
 - [HR timekeeping, screenshots, migration and limitations (1.1.0)](docs/HR_GUIDE.md)
 - [Qbox baseline, configuration and update procedure](docs/QBOX_BASELINE.md)
 - [Functional overview and limitations](docs/FUNCTIONEEL_OVERZICHT.md)
