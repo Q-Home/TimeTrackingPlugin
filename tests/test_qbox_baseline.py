@@ -32,6 +32,7 @@ class BaselineAPITests(unittest.TestCase):
         with patch('app.PyMongo', return_value=SimpleNamespace(db=cls.db)):
             cls.app = create_app()
         cls.app.config['TESTING'] = True
+        cls.app.config['INTERNAL_API_KEY'] = 'unit-test-only-internal-key'
         with cls.app.app_context():
             cls.admin = create_access_token(identity='admin', additional_claims={'role':'admin'})
             cls.user = create_access_token(identity='example.user', additional_claims={'role':'user'})
@@ -40,6 +41,8 @@ class BaselineAPITests(unittest.TestCase):
         self.db.badge_logs.delete_many({})
         self.db.app_settings.delete_many({})
         self.db.users.delete_many({'username':{'$ne':'admin'}})
+        self.db.users.insert_one({'username':'example.user','role':'user','blocked':False})
+        self.db.hr_state.delete_many({})
         self.client = self.app.test_client()
 
     def headers(self, token=None):
@@ -52,32 +55,32 @@ class BaselineAPITests(unittest.TestCase):
         response = self.client.post('/api/v1/badges/', json={
             'username':'example.user', 'action':'START',
             'timestamp':'2026-11-09T08:00:00+01:00',
-        }, headers=self.headers(self.user))
+        }, headers={'X-Internal-API-Key':'unit-test-only-internal-key'})
         self.assertEqual(response.status_code, 201, response.json)
         doc = self.db.badge_logs.find_one()
         self.assertIsNone(doc['badge_code'])
         self.assertEqual(doc['timestamp'], datetime(2026,11,9,7))
 
     def test_badge_code_is_resolved_from_existing_user(self):
-        self.db.users.insert_one({'username':'example.user','badge_code':'SYNTHETIC-001'})
+        self.db.users.update_one({'username':'example.user'},{'$set':{'badge_code':'SYNTHETIC-001'}})
         response = self.client.post('/api/v1/badges/', json={
             'username':'example.user','action':'START',
-        }, headers=self.headers(self.user))
+        }, headers={'X-Internal-API-Key':'unit-test-only-internal-key'})
         self.assertEqual(response.status_code, 201, response.json)
         self.assertEqual(self.db.badge_logs.find_one()['badge_code'],'SYNTHETIC-001')
 
     def test_explicit_badge_code_is_not_replaced_by_profile(self):
-        self.db.users.insert_one({'username':'example.user','badge_code':'SYNTHETIC-001'})
+        self.db.users.update_one({'username':'example.user'},{'$set':{'badge_code':'SYNTHETIC-001'}})
         response = self.client.post('/api/v1/badges/', json={
             'username':'example.user','badge_code':'SYNTHETIC-002','action':'START',
-        }, headers=self.headers(self.user))
+        }, headers={'X-Internal-API-Key':'unit-test-only-internal-key'})
         self.assertEqual(response.status_code, 201, response.json)
         self.assertEqual(self.db.badge_logs.find_one()['badge_code'],'SYNTHETIC-002')
 
     def test_invalid_create_action_is_rejected_without_insert(self):
         response = self.client.post('/api/v1/badges/', json={
             'username':'example.user','action':'NOT_AN_ACTION',
-        }, headers=self.headers(self.user))
+        }, headers={'X-Internal-API-Key':'unit-test-only-internal-key'})
         self.assertEqual(response.status_code,400)
         self.assertEqual(self.db.badge_logs.count_documents({}),0)
 

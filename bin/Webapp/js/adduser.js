@@ -21,7 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  if (role !== "admin") {
+  if (!["admin", "technical_admin"].includes(role)) {
     notify("Je hebt geen toegang tot deze pagina.", "warning");
     window.location.href = "/badgelist.html";
     return;

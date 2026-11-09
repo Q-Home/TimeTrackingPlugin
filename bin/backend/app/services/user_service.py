@@ -153,6 +153,10 @@ class UserService:
             if self.user_repository.find_by_username(username):
                 return error_response("Username already exists", 400)
 
+            from flask import current_app
+            if 'username:'+username in current_app.extensions['hr_service'].state()['identity_links']:
+                return error_response('Deze gebruikersnaam behoort bij een historische medewerker. Kies een nieuwe naam.',409)
+
             if self.user_repository.find_by_email(email):
                 return error_response("Email already exists", 400)
 
@@ -218,9 +222,9 @@ class UserService:
 
     def delete_user(self, username):
         try:
-            result = self.user_repository.delete_by_username(username)
+            result = self.user_repository.update_by_username(username, {'blocked': True, 'archived': True})
 
-            if result.deleted_count == 0:
+            if result.matched_count == 0:
                 return error_response("User not found", 404)
 
             self.log_repository.info(f"User deleted: {username}")
@@ -333,6 +337,8 @@ class UserService:
 
             update_fields.update(sanitized_extra_fields)
 
+            from flask import current_app
+            current_app.extensions['hr_service'].remember_username(existing_user['username'], new_username, user_id)
             result = self.user_repository.update_by_id(user_id, update_fields, unset_fields)
 
             if result.matched_count == 0:

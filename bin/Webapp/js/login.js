@@ -85,11 +85,8 @@ document.addEventListener("DOMContentLoaded", function () {
         localStorage.setItem("role", role);
 
         console.log("Ingelogd als:", username, "met rol:", role);
-        if (String(role).toLowerCase() === "admin") {
-          window.location.href = "/dashboard.html";
-        } else {
-          window.location.href = `/timesheet.html?username=${encodeURIComponent(username)}`;
-        }
+        window.location.href = ['admin','hr'].includes(String(role).toLowerCase())
+          ? '/hr.html?view=dashboard' : '/hr.html?view=hours';
       } else if (response.status === 401) {
         showLoginError(responseData.error || "Onjuiste inloggegevens. Probeer het opnieuw.");
       } else if (response.status === 403) {

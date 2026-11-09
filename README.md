@@ -8,6 +8,7 @@ security or time-calculation issues are resolved.
 
 ## Documentation
 
+- [HR timekeeping, screenshots, migration and limitations (1.1.0)](docs/HR_GUIDE.md)
 - [Qbox baseline, configuration and update procedure](docs/QBOX_BASELINE.md)
 - [Functional overview and limitations](docs/FUNCTIONEEL_OVERZICHT.md)
 

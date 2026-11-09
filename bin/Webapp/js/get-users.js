@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", function () {
     return;
   }
 
-  if (role !== "admin") {
+  if (!["admin", "technical_admin"].includes(role)) {
     redirectNonAdminToOwnTimesheet();
     return;
   }
@@ -51,7 +51,7 @@ function handleAuthError(response) {
   }
 
   if (response.status === 403) {
-    if (role !== "admin") {
+    if (!["admin", "technical_admin"].includes(role)) {
       redirectNonAdminToOwnTimesheet();
       return true;
     }
@@ -266,7 +266,7 @@ function renderUsers() {
 }
 
 function applyRoleRestrictions() {
-  if (role === "admin") return;
+  if (["admin", "technical_admin"].includes(role)) return;
 
   document.querySelectorAll(".js-block-user, .js-unblock-user, .js-edit-user, .js-delete-user").forEach((btn) => {
     btn.style.pointerEvents = "none";
@@ -338,7 +338,7 @@ function bindRowActions() {
 }
 
 function openTimesheet(username) {
-  if (role !== "admin") {
+  if (!["admin", "technical_admin"].includes(role)) {
     redirectNonAdminToOwnTimesheet();
     return;
   }
@@ -347,7 +347,7 @@ function openTimesheet(username) {
 }
 
 function confirmDeleteUser(username) {
-  if (role !== "admin") {
+  if (!["admin", "technical_admin"].includes(role)) {
     notify("Alleen admins mogen gebruikers verwijderen.", "warning");
     return;
   }
@@ -359,7 +359,7 @@ function confirmDeleteUser(username) {
 }
 
 function confirmBlockUser(username) {
-  if (role !== "admin") {
+  if (!["admin", "technical_admin"].includes(role)) {
     notify("Alleen admins mogen gebruikers blokkeren.", "warning");
     return;
   }
@@ -371,7 +371,7 @@ function confirmBlockUser(username) {
 }
 
 function confirmUnblockUser(username) {
-  if (role !== "admin") {
+  if (!["admin", "technical_admin"].includes(role)) {
     notify("Alleen admins mogen gebruikers deblokkeren.", "warning");
     return;
   }

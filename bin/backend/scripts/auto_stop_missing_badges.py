@@ -11,6 +11,8 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from pymongo import MongoClient
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
 BELGIUM_TZ = ZoneInfo("Europe/Brussels")
@@ -160,7 +162,7 @@ def build_auto_stop(start_log: dict, stop_timestamp: datetime, run_time: datetim
     }
 
 
-def run(collection, target_day: datetime, work_hours: int, lookback_days: int, dry_run: bool) -> int:
+def run(collection, target_day: datetime, work_hours: int, lookback_days: int, dry_run: bool, hr_service=None) -> int:
     run_time = datetime.utcnow()
     inserted = 0
 
@@ -171,12 +173,13 @@ def run(collection, target_day: datetime, work_hours: int, lookback_days: int, d
             work_hours=work_hours,
             run_time=run_time,
             dry_run=dry_run,
+            hr_service=hr_service,
         )
 
     return inserted
 
 
-def run_day(collection, target_day: datetime, work_hours: int, run_time: datetime, dry_run: bool) -> int:
+def run_day(collection, target_day: datetime, work_hours: int, run_time: datetime, dry_run: bool, hr_service=None) -> int:
     start_utc, end_utc = day_bounds_utc(target_day)
     logs = list(
         collection.find({"timestamp": {"$gte": start_utc, "$lt": end_utc}}).sort("timestamp", 1)
@@ -185,6 +188,45 @@ def run_day(collection, target_day: datetime, work_hours: int, run_time: datetim
     inserted = 0
     for _key, start_log in find_open_sessions(logs):
         stop_timestamp = start_log["timestamp"] + timedelta(hours=work_hours)
+        mode = 'legacy_elapsed'
+        if hr_service:
+            from app.hr.engine import policy
+            rules = policy(hr_service.state(), target_day.date())
+            mode = rules['auto_stop_mode']
+            if mode != 'legacy_elapsed':
+                # New rules use the complete effective stream, including overnight
+                # stops and HR overlays. Preserve the historical daily algorithm
+                # only for installations that have not opted into a new policy.
+                uid = hr_service.resolve(start_log)
+                from app.hr.engine import instant
+                later = sorted((e for e in hr_service.events(uid)
+                                if instant(e['timestamp']) > instant(start_log['timestamp'])
+                                and instant(e['timestamp']) <= instant(run_time)),
+                               key=lambda e: instant(e['timestamp']))
+                if any(normalize_action(e.get('action')) == 'STOP' for e in later):
+                    continue
+            if mode == 'signal':
+                print('Open sessie gesignaleerd; geen automatische wijziging.')
+                continue
+            if mode != 'legacy_elapsed':
+                if rules['auto_stop_rule'] == 'scheduled_end':
+                    uid = hr_service.resolve(start_log)
+                    state = hr_service.state()
+                    assignments = [a for a in state['assignments'] if a['employee_id'] == uid and a['effective_from'] <= str(target_day.date())]
+                    clock = rules['auto_stop_at']
+                    if assignments:
+                        assignment = max(assignments, key=lambda a:a['effective_from'])
+                        schedule = next(s for s in state['schedules'] if s['id']==assignment['schedule_id'])
+                        clock = schedule['days'][target_day.weekday()].get('end') or clock
+                    hour, minute = map(int, clock.split(':'))
+                    local = to_belgian(start_log['timestamp']).replace(hour=hour, minute=minute, second=0, microsecond=0)
+                    if to_utc_naive(local) <= start_log['timestamp']: local += timedelta(days=1)
+                    stop_timestamp = to_utc_naive(local)
+                else:
+                    stop_timestamp = start_log['timestamp'] + timedelta(hours=rules['auto_stop_hours'])
+            if mode == 'propose':
+                hr_service.automatic_proposal(start_log, stop_timestamp, dry_run)
+                continue
         if stop_timestamp > run_time:
             continue
 
@@ -192,6 +234,9 @@ def run_day(collection, target_day: datetime, work_hours: int, run_time: datetim
             continue
 
         auto_stop = build_auto_stop(start_log, stop_timestamp, run_time)
+        if hr_service and mode != 'legacy_elapsed':
+            auto_stop['raw_data'].update(reason='configured_auto_stop',
+                note='Automatische STOP volgens de expliciet ingestelde afsluitregel.',rules_snapshot=rules)
         if dry_run:
             local_start = to_belgian(start_log["timestamp"]).isoformat()
             local_stop = to_belgian(stop_timestamp).isoformat()
@@ -202,8 +247,17 @@ def run_day(collection, target_day: datetime, work_hours: int, run_time: datetim
             inserted += 1
             continue
 
-        collection.insert_one(auto_stop)
-        inserted += 1
+        token = None
+        if hr_service:
+            try: token = hr_service.reserve_event(auto_stop)
+            except Exception:
+                print('Automatische STOP niet toegepast: periodecontrole vereist.')
+                continue
+        try:
+            collection.insert_one(auto_stop)
+            inserted += 1
+        finally:
+            if token: hr_service.finish_event(token)
 
     return inserted
 
@@ -234,7 +288,9 @@ def main() -> int:
     client = MongoClient(mongo_uri)
     collection = client[db_name]["badge_logs"]
 
-    inserted = run(collection, target_day, args.work_hours, args.lookback_days, args.dry_run)
+    from app.hr.service import HRService
+    inserted = run(collection, target_day, args.work_hours, args.lookback_days, args.dry_run,
+                   hr_service=HRService(client[db_name]))
     print(f"Automatic STOP badges {'would be inserted' if args.dry_run else 'inserted'}: {inserted}")
     return 0
 

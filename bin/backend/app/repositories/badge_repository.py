@@ -25,7 +25,13 @@ class BadgeRepository:
         return self.mongo.db["badge_logs"].find_one({"_id": ObjectId(badge_id)})
 
     def insert_badge(self, badge_data: dict):
-        return self.mongo.db["badge_logs"].insert_one(badge_data)
+        from flask import current_app, has_app_context
+        hr = current_app.extensions.get('hr_service') if has_app_context() else None
+        token = hr.reserve_event(badge_data) if hr else None
+        try:
+            return self.mongo.db['badge_logs'].insert_one(badge_data)
+        finally:
+            if token: hr.finish_event(token)
 
     def update_badge(self, badge_id: str, update_fields: dict):
         return self.mongo.db["badge_logs"].update_one(
