@@ -1,6 +1,7 @@
 from bson.objectid import ObjectId
 from datetime import datetime
 from app.models.badge import Badge
+from app.hr.service import HRError
 from app.validators.badge_validator import BadgeValidator
 from app.utils.response import success_response, error_response
 from app.utils.date_helper import DateHelper
@@ -114,6 +115,13 @@ class BadgeService:
                 return validation_error
 
             query, filters_applied = self._build_badge_query(args)
+            from app.hr.routes import principal, HR_ROLES
+            from flask import current_app
+            actor = principal()
+            if actor['role'] not in HR_ROLES:
+                hr = current_app.extensions['hr_service']
+                allowed = [e['_id'] for e in self.badge_repository.mongo.db.badge_logs.find({}) if hr.resolve(e) == actor['id']]
+                query = {'$and': [query, {'_id': {'$in': allowed}}]}
 
             total_count = self.badge_repository.count_badges(query)
             skip = (page - 1) * limit
@@ -151,6 +159,11 @@ class BadgeService:
             if not badge_doc:
                 return error_response("Badge log not found", 404)
 
+            from app.hr.routes import principal, HR_ROLES
+            from flask import current_app
+            actor = principal()
+            if actor['role'] not in HR_ROLES and current_app.extensions['hr_service'].resolve(badge_doc) != actor['id']:
+                return error_response('Je kunt alleen je eigen registraties bekijken.', 403)
             badge = Badge.from_mongo(badge_doc)
             return success_response(badge.to_dict(), "Badge retrieved successfully")
 
@@ -194,6 +207,8 @@ class BadgeService:
 
         except ValueError as e:
             return error_response(str(e), 400)
+        except HRError:
+            raise
         except Exception as e:
             self.log_repository.error(f"Error creating badge log: {e}")
             return error_response(str(e), 500)

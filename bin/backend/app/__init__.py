@@ -44,6 +44,12 @@ def create_app():
     init_swagger(app)
 
     mongo = PyMongo(app)
+    from app.hr.service import HRService
+    from app.hr.routes import register_hr_routes, register_hr_errors
+    hr_service = HRService(mongo.db)
+    app.extensions['hr_service'] = hr_service
+    app.register_blueprint(register_hr_routes(hr_service, Config.API_PREFIX))
+    register_hr_errors(app)
 
     log_repository = LogRepository(mongo)
     user_repository = UserRepository(mongo)

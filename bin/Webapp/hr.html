@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="nl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Q-Home · Uren & medewerkers</title>
+<link rel="icon" href="images/timetracking-favicon.svg"><link rel="stylesheet" href="css/hr.css">
+<script defer src="js/branding.js"></script><script defer src="js/hr.js"></script></head>
+<body>
+<aside class="rail"><a class="brand" href="hr.html"><img src="images/logo.png" alt="" data-brand-logo><span data-brand-name>Q-Home</span></a>
+<p class="rail-caption">TIJD & MEDEWERKERS</p><nav id="navigation" aria-label="Hoofdnavigatie"></nav>
+<div class="rail-bottom"><span id="identity"></span><button id="logout" class="text-button">Afmelden</button></div></aside>
+<main><header class="page-header"><div><p class="eyebrow">HR-WERKOMGEVING</p><h1 id="page-title">Urenoverzicht</h1><p id="page-description">Van registratie naar gecontroleerde uren.</p></div><div class="header-actions"><span class="badge neutral">Q-Box · Tijdregistratie</span><button id="refresh" class="secondary">Vernieuwen</button></div></header>
+<div id="feedback" role="status" aria-live="polite"></div>
+<section id="filters" class="panel filters"><label>Periode<select id="period"><option value="month">Maand</option><option value="week">Week</option><option value="custom">Vrije periode</option></select></label>
+<label>Van<input type="date" id="start" required></label><label>Tot en met<input type="date" id="end" required></label>
+<label>Peildatum<input type="date" id="as-of"></label><label class="hr-only">Medewerker<select id="employee-filter"><option value="">Alle medewerkers</option></select></label>
+<label class="hr-only">Afdeling<select id="department-filter"><option value="">Alle afdelingen</option></select></label>
+<label class="hr-only">Controlestatus<select id="status-filter"><option value="">Alle statussen</option><option value="geen_registratie">Geen registratie</option><option value="bezig">Bezig</option><option value="afgesloten">Afgesloten</option><option value="afwijking">Afwijking</option><option value="goedgekeurd">Goedgekeurd</option></select></label>
+<button id="apply-filters">Toepassen</button></section>
+<section id="content" aria-live="polite"><div class="panel empty">Gegevens worden geladen…</div></section>
+<footer>Copyright 2026 | <a href="https://q-home.be">Q-Home</a> · Urenrapportage, geen gecertificeerde loonintegratie.</footer></main>
+<dialog id="modal"><form id="modal-form"><header><h2 id="modal-title"></h2><button type="button" id="modal-close" class="text-button" aria-label="Sluiten">×</button></header><div id="modal-fields"></div><div class="modal-actions"><button type="button" id="cancel" class="secondary">Annuleren</button><button type="submit" id="modal-submit">Opslaan</button></div></form></dialog>
+</body></html>

@@ -60,18 +60,18 @@
 
   function applyRoleVisibility() {
     document.querySelectorAll("[data-admin-only]").forEach((element) => {
-      if (shell.role === "admin") return;
+      if (["admin", "technical_admin"].includes(shell.role)) return;
       element.classList.add("d-none");
     });
 
     document.querySelectorAll("[data-user-only]").forEach((element) => {
-      if (shell.role !== "admin") return;
+      if (!["admin", "technical_admin"].includes(shell.role)) return;
       element.classList.add("d-none");
     });
 
     document.querySelectorAll("[data-user-copy]").forEach((element) => {
       const copyType = element.getAttribute("data-user-copy");
-      if (shell.role === "admin") return;
+      if (["admin", "technical_admin"].includes(shell.role)) return;
 
       if (copyType === "timesheet-nav") {
         element.textContent = "Mijn Timesheet";
@@ -90,7 +90,7 @@
   }
 
   function ensureAdminSettingsNav() {
-    if (shell.role !== "admin") return;
+    if (!["admin", "technical_admin"].includes(shell.role)) return;
 
     document.querySelectorAll("#iq-sidebar-toggle").forEach((menu) => {
       if (menu.querySelector('a[href="settings.html"]')) return;
@@ -108,7 +108,7 @@
   function applyProfileBox() {
     updateText("js-nametag", shell.username ? `Hallo ${shell.username}` : "Welkom");
 
-    if (shell.role !== "admin" && shell.username) {
+    if (!["admin", "technical_admin"].includes(shell.role) && shell.username) {
       document.querySelectorAll(".tt-shell-brand").forEach((brandLink) => {
         brandLink.setAttribute("href", `timesheet.html?username=${encodeURIComponent(shell.username)}`);
       });
@@ -131,7 +131,7 @@
 
   function redirectAdminPageIfNeeded() {
     const adminPage = document.body.getAttribute("data-admin-page") === "true";
-    if (!adminPage || shell.role === "admin") return;
+    if (!adminPage || ["admin", "technical_admin"].includes(shell.role)) return;
 
     if (shell.username) {
       window.location.replace(`timesheet.html?username=${encodeURIComponent(shell.username)}`);
@@ -143,6 +143,16 @@
   }
 
   function init() {
+    document.querySelectorAll('#iq-sidebar-toggle').forEach(menu => {
+      const views = ['admin','hr'].includes(shell.role)
+        ? [['dashboard','HR-overzicht'],['hours','Urenoverzicht'],['review','Te controleren'],['settings','HR-instellingen']]
+        : [['hours','Mijn uren']];
+      for (const [view,label] of views) {
+        const item=document.createElement('li');
+        const link=document.createElement('a');link.href=`hr.html?view=${view}`;link.textContent=label;
+        item.appendChild(link);menu.appendChild(item);
+      }
+    });
     redirectAdminPageIfNeeded();
     ensureAdminSettingsNav();
     applyRoleVisibility();

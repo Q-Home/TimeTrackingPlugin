@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  if (role !== "admin") {
+  if (!["admin", "technical_admin"].includes(role)) {
     window.location.href = "/timesheet.html";
     return;
   }

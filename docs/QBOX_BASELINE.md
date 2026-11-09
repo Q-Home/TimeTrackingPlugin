@@ -1,3 +1,7 @@
+# HR-uitbreiding 1.1.0
+
+De HR-branch voegt een gedeelde urenberekening, onveranderlijke bron met correctie-overlays, gedateerde roosters/regels en afsluitingen toe. Zie [HR_GUIDE.md](HR_GUIDE.md) voor de expliciete migratie, herstelkopie, testupgrade en beperkingen. Lokale configuratie en volumes worden behouden. Interne API-verzoeken vereisen nu de private key; een vertrouwd subnet alleen geeft geen toegang meer. Er is geen automatische productiemigratie of uitrol. De onderstaande baseline blijft het historische vertrekpunt.
+
 # Qbox baseline and update procedure
 
 ## Source of truth

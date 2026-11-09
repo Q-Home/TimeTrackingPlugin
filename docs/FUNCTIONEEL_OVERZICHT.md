@@ -1,3 +1,7 @@
+# Nieuwe HR-uitbreiding
+
+De onderstaande analyse beschrijft de eerdere Qbox-baseline. Voor de geïmplementeerde HR-functies in versie 1.1.0, gewijzigde rechten, gedeelde berekening en migratie zie [HR_GUIDE.md](HR_GUIDE.md). De historische beperkingen hieronder zijn geen beschrijving van de nieuwe HR-schermen.
+
 # TimeTrackingPlugin — functies en uitbreidingsmogelijkheden
 
 **Stand van zaken: 5 november 2026**  

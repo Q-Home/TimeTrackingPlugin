@@ -2,4 +2,6 @@ class Roles:
     ADMIN = "admin"
     USER = "user"
 
-    ALL = [ADMIN, USER]
+    HR = "hr"
+    TECHNICAL = "technical_admin"
+    ALL = [ADMIN, USER, HR, TECHNICAL]

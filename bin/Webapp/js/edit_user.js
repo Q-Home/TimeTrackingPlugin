@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", function () {
   if (!username) {
     console.error("No username provided in the URL.");
     notify("Geen gebruikersnaam gevonden in de URL.", "warning");
-    window.location.href = role === "admin" ? "/user-list.html" : "/timesheet.html";
+    window.location.href = ["admin", "technical_admin"].includes(role) ? "/user-list.html" : "/timesheet.html";
     return;
   }
 
@@ -140,7 +140,7 @@ async function fetchUserData(targetUsername) {
     const roleSelect = document.getElementById("selectuserrole");
     if (roleSelect) {
       roleSelect.value = data.user_role || "user";
-      if (role !== "admin") {
+      if (!["admin", "technical_admin"].includes(role)) {
         roleSelect.disabled = true;
       }
     }
@@ -149,7 +149,7 @@ async function fetchUserData(targetUsername) {
     blockedStatusRadios.forEach((radio) => {
       radio.checked = radio.value === blockedStatus;
 
-      if (role !== "admin") {
+      if (!["admin", "technical_admin"].includes(role)) {
         radio.disabled = true;
       }
     });
@@ -177,7 +177,7 @@ async function handleUserDataFormSubmit(event) {
   }
 
   try {
-    if (role === "admin" && currentUsername !== originalUsername) {
+    if (["admin", "technical_admin"].includes(role) && currentUsername !== originalUsername) {
       const isUsernameTaken = await checkUsernameUnique(currentUsername);
       if (isUsernameTaken) {
         notify("Gebruikersnaam is al in gebruik.", "warning");
@@ -185,7 +185,7 @@ async function handleUserDataFormSubmit(event) {
       }
     }
 
-    if (role === "admin" && currentEmail !== originalEmail) {
+    if (["admin", "technical_admin"].includes(role) && currentEmail !== originalEmail) {
       const isEmailTaken = await checkEmailUnique(currentEmail);
       if (isEmailTaken) {
         notify("E-mailadres is al in gebruik.", "warning");
@@ -201,15 +201,15 @@ async function handleUserDataFormSubmit(event) {
     }
 
     const userData = {
-      username: role === "admin" ? currentUsername : originalUsername,
+      username: ["admin", "technical_admin"].includes(role) ? currentUsername : originalUsername,
       first_name: (document.getElementById("fname")?.value || "").trim(),
       last_name: (document.getElementById("lname")?.value || "").trim(),
       company_name: (document.getElementById("cname")?.value || "").trim(),
-      badge_code: role === "admin" ? currentBadgeCode : "",
+      badge_code: ["admin", "technical_admin"].includes(role) ? currentBadgeCode : "",
       email: currentEmail,
       user_role: roleSelect ? roleSelect.value : "user",
       blocked: blockedRadio ? blockedRadio.value === "true" : false,
-      extra_fields: role === "admin" ? extraFields : {},
+      extra_fields: ["admin", "technical_admin"].includes(role) ? extraFields : {},
     };
 
     const response = await fetch(`${apiUrl}/users/${encodeURIComponent(userId)}`, {
@@ -228,11 +228,11 @@ async function handleUserDataFormSubmit(event) {
 
     notify(result.message || "Accountgegevens succesvol bijgewerkt.", "success");
 
-    originalUsername = role === "admin" ? currentUsername : originalUsername;
+    originalUsername = ["admin", "technical_admin"].includes(role) ? currentUsername : originalUsername;
     originalEmail = currentEmail;
-    originalExtraFields = role === "admin" ? extraFields : originalExtraFields;
+    originalExtraFields = ["admin", "technical_admin"].includes(role) ? extraFields : originalExtraFields;
 
-    window.location.href = role === "admin"
+    window.location.href = ["admin", "technical_admin"].includes(role)
       ? "/user-list.html"
       : `/timesheet.html?username=${encodeURIComponent(originalUsername)}`;
   } catch (error) {
@@ -342,7 +342,7 @@ function setValue(id, value) {
 }
 
 function configureAccountFormForRole() {
-  if (role === "admin") return;
+  if (["admin", "technical_admin"].includes(role)) return;
 
   document.getElementById("uname")?.setAttribute("readonly", "readonly");
   document.getElementById("badgeCode")?.setAttribute("readonly", "readonly");

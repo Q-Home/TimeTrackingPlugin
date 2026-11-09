@@ -1,194 +1,42 @@
 from flask import Blueprint, request
-from flask_jwt_extended import verify_jwt_in_request, get_jwt, get_jwt_identity
-from app.constants.roles import Roles
-from app.decorators.permissions import admin_required, internal_api_key_or_admin_required
-from app.decorators.internal_auth import internal_api_key_or_jwt_required
 from app.decorators.internal_request import is_trusted_internal_request
-from app.utils.response import error_response
+from app.hr.routes import HR_ROLES, TECH_ROLES, principal, require
+from app.hr.service import HRError
 
 
-def register_user_routes(user_service, api_prefix):
-    user_bp = Blueprint("users", __name__)
-
-    @user_bp.route(f"{api_prefix}/users/", methods=["GET"])
-    @internal_api_key_or_admin_required
-    def get_users():
-        """
-        Get all users derived from badge logs
-        ---
-        tags:
-          - Users
-        security:
-          - Bearer: []
-        produces:
-          - application/json
-        responses:
-          200:
-            description: Users retrieved successfully
-            schema:
-              allOf:
-                - $ref: '#/definitions/SuccessResponse'
-                - type: object
-                  properties:
-                    data:
-                      type: object
-                      properties:
-                        users:
-                          type: array
-                          items:
-                            type: object
-                        total_users:
-                          type: integer
-                          example: 10
-          401:
-            description: Authentication required
-            schema:
-              $ref: '#/definitions/ErrorResponse'
-        """
-        return user_service.get_users()
-
-    @user_bp.route(f"{api_prefix}/users/<username>", methods=["GET"])
-    @internal_api_key_or_jwt_required()
-    def get_user(username):
-        """
-        Get one user by username
-        ---
-        tags:
-          - Users
-        security:
-          - Bearer: []
-        produces:
-          - application/json
-        parameters:
-          - in: path
-            name: username
-            type: string
-            required: true
-            example: admin
-        responses:
-          200:
-            description: User retrieved successfully
-            schema:
-              allOf:
-                - $ref: '#/definitions/SuccessResponse'
-                - type: object
-                  properties:
-                    data:
-                      $ref: '#/definitions/User'
-          404:
-            description: User not found
-            schema:
-              $ref: '#/definitions/ErrorResponse'
-        """
-        if is_trusted_internal_request():
-            return user_service.get_user(username)
-
-        verify_jwt_in_request()
-        claims = get_jwt()
-        current_username = get_jwt_identity()
-
-        if claims.get("role") != Roles.ADMIN and username != current_username:
-            return error_response("You can only view your own user profile", 403)
-
-        return user_service.get_user(username)
-
-    @user_bp.route(f"{api_prefix}/users/", methods=["POST"])
-    @internal_api_key_or_admin_required
-    def create_user():
-        """
-        Create a new user
-        ---
-        tags:
-          - Users
-        security:
-          - Bearer: []
-        consumes:
-          - application/json
-        produces:
-          - application/json
-        parameters:
-          - in: body
-            name: body
-            required: true
-            schema:
-              $ref: '#/definitions/UserCreateRequest'
-        responses:
-          201:
-            description: User created successfully
-            schema:
-              $ref: '#/definitions/SuccessResponse'
-          400:
-            description: Validation error
-            schema:
-              $ref: '#/definitions/ErrorResponse'
-          401:
-            description: Authentication required
-            schema:
-              $ref: '#/definitions/ErrorResponse'
-          403:
-            description: Admin required
-            schema:
-              $ref: '#/definitions/ErrorResponse'
-        """
-        return user_service.create_user(request.get_json() or {})
-
-    @user_bp.route(f"{api_prefix}/users/<username>/block", methods=["PUT"])
-    @admin_required
-    def block_user(username):
-        return user_service.block_user(username)
-
-    @user_bp.route(f"{api_prefix}/users/<username>/unblock", methods=["PUT"])
-    @admin_required
-    def unblock_user(username):
-        return user_service.unblock_user(username)
-
-    @user_bp.route(f"{api_prefix}/users/<username>", methods=["DELETE"])
-    @admin_required
-    def delete_user(username):
-        return user_service.delete_user(username)
-
-    @user_bp.route(f"{api_prefix}/users/<user_id>", methods=["PUT"])
-    @internal_api_key_or_jwt_required()
-    def update_user_by_id(user_id):
-        payload = request.get_json() or {}
-
-        if is_trusted_internal_request():
-            return user_service.update_user_by_id(user_id, payload, allow_privileged_fields=True)
-
-        verify_jwt_in_request()
-        claims = get_jwt()
-        current_username = get_jwt_identity()
-        existing_user = user_service.user_repository.find_by_id(user_id)
-
-        if not existing_user:
-            return error_response("User not found", 404)
-
-        is_admin = claims.get("role") == Roles.ADMIN
-        if not is_admin and existing_user.get("username") != current_username:
-            return error_response("You can only update your own user profile", 403)
-
-        return user_service.update_user_by_id(user_id, payload, allow_privileged_fields=is_admin)
-
-    @user_bp.route(f"{api_prefix}/users/<user_id>/password", methods=["PUT"])
-    @internal_api_key_or_jwt_required()
-    def update_password_by_id(user_id):
-        payload = request.get_json() or {}
-
-        if is_trusted_internal_request():
-            return user_service.update_password_by_id(user_id, payload)
-
-        verify_jwt_in_request()
-        claims = get_jwt()
-        current_username = get_jwt_identity()
-        existing_user = user_service.user_repository.find_by_id(user_id)
-
-        if not existing_user:
-            return error_response("User not found", 404)
-
-        is_admin = claims.get("role") == Roles.ADMIN
-        if not is_admin and existing_user.get("username") != current_username:
-            return error_response("You can only update your own password", 403)
-
-        return user_service.update_password_by_id(user_id, payload)
-
-    return user_bp
+def register_user_routes(service,prefix):
+    bp=Blueprint('users',__name__)
+    def manager(read=False):
+        if is_trusted_internal_request():return True
+        actor=principal()
+        allowed=TECH_ROLES|HR_ROLES if read else TECH_ROLES
+        if actor['role'] not in allowed:raise HRError('Geen rechten voor gebruikersbeheer.',403)
+        return True
+    @bp.route(prefix+'/users/',methods=['GET'])
+    def users():manager(True);return service.get_users()
+    @bp.route(prefix+'/users/',methods=['POST'])
+    def create():manager();return service.create_user(request.get_json() or {})
+    @bp.route(prefix+'/users/<username>',methods=['GET'])
+    def get(username):
+        if not is_trusted_internal_request():
+            actor=principal()
+            if actor['role'] not in TECH_ROLES|HR_ROLES and actor['username']!=username:raise HRError('Je kunt alleen je eigen profiel bekijken.',403)
+        return service.get_user(username)
+    @bp.route(prefix+'/users/<username>/block',methods=['PUT'])
+    def block(username):manager();return service.block_user(username)
+    @bp.route(prefix+'/users/<username>/unblock',methods=['PUT'])
+    def unblock(username):manager();return service.unblock_user(username)
+    @bp.route(prefix+'/users/<username>',methods=['DELETE'])
+    def archive(username):manager();return service.delete_user(username)
+    def owner(uid):
+        if is_trusted_internal_request():return True
+        actor=principal();target=service.user_repository.find_by_id(uid)
+        if not target:raise HRError('Medewerker niet gevonden.',404)
+        privileged=actor['role'] in TECH_ROLES
+        if not privileged and str(target['_id'])!=actor['id']:raise HRError('Je kunt alleen je eigen profiel wijzigen.',403)
+        return privileged
+    @bp.route(prefix+'/users/<uid>',methods=['PUT'])
+    def update(uid):return service.update_user_by_id(uid,request.get_json() or {},allow_privileged_fields=owner(uid))
+    @bp.route(prefix+'/users/<uid>/password',methods=['PUT'])
+    def password(uid):owner(uid);return service.update_password_by_id(uid,request.get_json() or {})
+    return bp

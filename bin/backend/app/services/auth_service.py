@@ -34,7 +34,8 @@ class AuthService:
             identity=user["username"],
             additional_claims={
                 "role": user.get("role", Roles.USER),
-                "email": user.get("email", "")
+                "email": user.get("email", ""),
+                "employee_id": str(user["_id"])
             }
         )
 
