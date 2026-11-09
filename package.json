@@ -10,7 +10,7 @@
     "pre:minor": "node .github/release.js minor true",
     "pre:patch": "node .github/release.js patch true"
   },
-  "author": "TiboDeneire",
+  "author": "Q-Home",
   "license": "APACHE 2.0",
   "devDependencies": {
     "generate-changelog": "1.8.0",
