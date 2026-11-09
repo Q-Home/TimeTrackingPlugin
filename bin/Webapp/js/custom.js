@@ -77,6 +77,7 @@ Index Of Script
         /*---------------------------------------------------------------------
         Magnific Popup
         -----------------------------------------------------------------------*/
+        if (jQuery.isFunction(jQuery.fn.magnificPopup)) {
         jQuery('.popup-gallery').magnificPopup({
             delegate: 'a.popup-img',
             type: 'image',
@@ -102,6 +103,7 @@ Index Of Script
             preloader: false,
             fixedContentPos: false
         });
+        }
 
 
         /*---------------------------------------------------------------------
@@ -267,11 +269,11 @@ Index Of Script
         };
         
         let Scrollbar = window.Scrollbar;
-        if (jQuery('#sidebar-scrollbar').length) {
+        if (Scrollbar && jQuery('#sidebar-scrollbar').length) {
             Scrollbar.init(document.querySelector('#sidebar-scrollbar'), options);
         }
         let Scrollbar1 = window.Scrollbar;
-        if (jQuery('#right-sidebar-scrollbar').length) {
+        if (Scrollbar1 && jQuery('#right-sidebar-scrollbar').length) {
             Scrollbar1.init(document.querySelector('#right-sidebar-scrollbar'), options);
         }
 
@@ -280,14 +282,17 @@ Index Of Script
         /*---------------------------------------------------------------------
         Counter
         -----------------------------------------------------------------------*/
+        if (jQuery.isFunction(jQuery.fn.counterUp)) {
         jQuery('.counter').counterUp({
             delay: 10,
             time: 1000
         });
+        }
 
         /*---------------------------------------------------------------------
         slick
         -----------------------------------------------------------------------*/
+        if (jQuery.isFunction(jQuery.fn.slick)) {
         jQuery('.slick-slider').slick({
             centerMode: true,
             centerPadding: '60px',
@@ -383,6 +388,7 @@ Index Of Script
             }],
            
         });
+        }
 
 
 
@@ -420,6 +426,7 @@ Index Of Script
         /*---------------------------------------------------------------------
         Wow Animation
         -----------------------------------------------------------------------*/
+        if (typeof WOW !== "undefined") {
         let wow = new WOW({
             boxClass: 'wow',
             animateClass: 'animated',
@@ -428,6 +435,7 @@ Index Of Script
             live: true
         });
         wow.init();
+        }
 
 
         
@@ -523,6 +531,9 @@ Index Of Script
         -----------------------------------------------------------------------*/
         document.addEventListener("DOMContentLoaded", function() {
             const form = document.querySelector("form");
+            if (!form || !document.getElementById("exampleInputPassword2")) {
+                return;
+            }
 
             form.addEventListener("submit", function(event) {
                 

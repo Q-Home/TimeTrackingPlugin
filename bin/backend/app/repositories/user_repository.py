@@ -8,6 +8,9 @@ class UserRepository:
     def find_by_username(self, username: str):
         return self.mongo.db["users"].find_one({"username": username})
 
+    def find_by_external_user_id(self, user_id: str):
+        return self.mongo.db["users"].find_one({"user_id": user_id})
+
     def find_by_email(self, email: str):
         return self.mongo.db["users"].find_one({"email": email})
 

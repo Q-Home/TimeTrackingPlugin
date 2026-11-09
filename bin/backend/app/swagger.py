@@ -102,9 +102,8 @@ def init_swagger(app):
             },
             "BadgeCreateRequest": {
                 "type": "object",
-                "required": ["badge_code"],
                 "properties": {
-                    "badge_code": {"type": "string", "example": "BADGE001"},
+                    "badge_code": {"type": "string", "example": "BADGE001", "x-nullable": True},
                     "username": {"type": "string", "example": "tibo"},
                     "user_id": {"type": "string", "example": "EMP001"},
                     "first_name": {"type": "string", "example": "Tibo"},
@@ -131,7 +130,7 @@ def init_swagger(app):
                 "type": "object",
                 "properties": {
                     "id": {"type": "string", "example": "65f01abc1234567890abcd12"},
-                    "badge_code": {"type": "string", "example": "BADGE001"},
+                    "badge_code": {"type": "string", "example": "BADGE001", "x-nullable": True},
                     "timestamp": {"type": "string", "example": "2026-03-09T12:00:00"},
                     "username": {"type": "string", "example": "tibo"},
                     "user_id": {"type": "string", "example": "EMP001"},

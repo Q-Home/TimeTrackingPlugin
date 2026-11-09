@@ -7,9 +7,43 @@ from app.utils.date_helper import DateHelper
 
 
 class BadgeService:
-    def __init__(self, badge_repository, log_repository):
+    def __init__(self, badge_repository, user_repository, log_repository):
         self.badge_repository = badge_repository
+        self.user_repository = user_repository
         self.log_repository = log_repository
+
+    def _normalize_badge_code(self, value):
+        if value is None:
+            return None
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped or None
+        return str(value)
+
+    def _resolve_badge_code(self, data):
+        badge_code = self._normalize_badge_code(data.get("badge_code"))
+        if badge_code:
+            return badge_code
+
+        username = (data.get("username") or "").strip()
+        external_user_id = (data.get("user_id") or "").strip()
+        user = None
+
+        if username:
+            user = self.user_repository.find_by_username(username)
+
+        if not user and external_user_id:
+            user = self.user_repository.find_by_external_user_id(external_user_id)
+
+        if not user:
+            return None
+
+        fallback_badge_code = self._normalize_badge_code(user.get("badge_code"))
+        if fallback_badge_code:
+            self.log_repository.info(
+                f"Resolved missing badge_code for user '{username or external_user_id}' to '{fallback_badge_code}'"
+            )
+        return fallback_badge_code
 
     def _build_badge_query(self, source):
         query = {}
@@ -135,7 +169,7 @@ class BadgeService:
             updated_at = self._parse_optional_datetime(data.get("updated_at"))
 
             badge = Badge(
-                badge_code=data.get("badge_code"),
+                badge_code=self._resolve_badge_code(data),
                 action=data.get("action", "SCAN"),
                 username=data.get("username", ""),
                 user_id=data.get("user_id", ""),

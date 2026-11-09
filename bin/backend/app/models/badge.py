@@ -6,7 +6,7 @@ class Badge:
 
     def __init__(
         self,
-        badge_code: str,
+        badge_code: str | None,
         action: str,
         username: str = "",
         user_id: str = "",
@@ -86,7 +86,7 @@ class Badge:
     def from_mongo(cls, data: dict):
         return cls(
             badge_id=str(data.get("_id")) if data.get("_id") else None,
-            badge_code=data.get("badge_code", ""),
+            badge_code=data.get("badge_code"),
             action=data.get("action", "SCAN"),
             username=data.get("username", ""),
             user_id=data.get("user_id", ""),

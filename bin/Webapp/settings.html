@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="nl">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>Settings - Q-Home</title>
+  <link rel="icon" type="image/svg+xml" href="images/timetracking-favicon.svg" />
+  <link rel="shortcut icon" href="images/timetracking-favicon.svg" />
+  <link rel="stylesheet" href="css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/typography.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <link rel="stylesheet" href="css/magnific-popup.css">
+  <link rel="stylesheet" href="css/select2.min.css">
+  <link rel="stylesheet" href="css/timetracking-ui.css">
+  <style>
+    #loading {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body data-page="settings" data-admin-page="true">
+  <div id="loading">
+    <div id="loading-center"></div>
+  </div>
+
+  <div class="wrapper">
+    <div class="iq-sidebar">
+      <div class="iq-sidebar-logo d-flex justify-content-between">
+        <a href="dashboard.html" class="header-logo tt-shell-brand">
+          <img src="images/logo.png" class="img-fluid" alt="Logo">
+          <div class="tt-shell-brand__text">
+            <span class="tt-shell-brand__title">Q-Home</span>
+          </div>
+        </a>
+      </div>
+      <div id="sidebar-scrollbar">
+        <nav class="iq-sidebar-menu">
+          <ul id="iq-sidebar-toggle" class="iq-menu">
+            <li data-admin-only>
+              <a href="dashboard.html"><i class="las la-tachometer-alt"></i><span>Dashboard</span></a>
+            </li>
+            <li>
+              <a href="badgelist.html"><i class="las la-id-card"></i><span>Badge Scans</span></a>
+            </li>
+            <li>
+              <a href="user-list.html"><i class="las la-users"></i><span>Gebruikers</span></a>
+            </li>
+            <li data-admin-only>
+              <a href="logs.html"><i class="las la-clipboard-list"></i><span>Logs</span></a>
+            </li>
+            <li class="active active-menu" data-admin-only>
+              <a href="settings.html"><i class="las la-cog"></i><span>Settings</span></a>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </div>
+
+    <div class="iq-top-navbar">
+      <div class="iq-navbar-custom">
+        <nav class="navbar navbar-expand-lg navbar-light p-0">
+          <div class="navbar-breadcrumb w-100">
+            <div class="tt-page-heading">
+              <div class="tt-page-heading__copy">
+                <h4 class="mb-0 text-dark">White-label settings</h4>
+                <p class="mb-0"><span class="text-primary">Branding,</span> pas naam, logo en accentkleur aan.</p>
+              </div>
+              <div class="tt-page-actions">
+                <span class="tt-admin-pill">Admin only</span>
+              </div>
+            </div>
+          </div>
+        </nav>
+      </div>
+    </div>
+
+    <div id="content-page" class="content-page">
+      <div class="container-fluid">
+        <div class="row">
+          <div class="col-lg-7">
+            <div class="iq-card">
+              <div class="iq-card-header">
+                <h4 class="card-title mb-0">Branding</h4>
+              </div>
+              <div class="iq-card-body">
+                <div id="settingsMessage"></div>
+                <form id="brandingForm">
+                  <div class="form-group">
+                    <label for="brandName">Naam bovenaan</label>
+                    <input type="text" id="brandName" class="form-control" maxlength="80" required>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="logoUpload">Logo kiezen</label>
+                    <input type="file" id="logoUpload" class="form-control" accept="image/*">
+                  </div>
+
+                  <div class="form-group">
+                    <label for="logoUrl">Logo URL of opgeslagen afbeelding</label>
+                    <input type="text" id="logoUrl" class="form-control" placeholder="images/logo.png">
+                  </div>
+
+                  <div class="form-group">
+                    <label for="accentColor">Accentkleur</label>
+                    <input type="color" id="accentColor" class="form-control tt-color-input" value="#4caf57">
+                  </div>
+
+                  <button type="submit" class="btn btn-primary">
+                    <i class="las la-save mr-1"></i> Opslaan
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-5">
+            <div class="iq-card">
+              <div class="iq-card-header">
+                <h4 class="card-title mb-0">Preview</h4>
+              </div>
+              <div class="iq-card-body">
+                <div class="tt-brand-preview">
+                  <div class="tt-shell-brand">
+                    <img id="brandPreviewLogo" src="images/logo.png" alt="Logo">
+                    <div class="tt-shell-brand__text">
+                      <span class="tt-shell-brand__title" id="brandPreviewName">Q-Home</span>
+                    </div>
+                  </div>
+                  <button type="button" class="btn btn-primary mt-4" id="brandPreviewButton">Voorbeeld knop</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="app-notice-region"></div>
+
+  <script src="js/jquery.min.js"></script>
+  <script src="js/popper.min.js"></script>
+  <script src="js/bootstrap.min.js"></script>
+  <script src="js/jquery.magnific-popup.min.js"></script>
+  <script src="js/select2.min.js"></script>
+  <script src="js/custom.js"></script>
+  <script src="js/branding.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/settings.js"></script>
+</body>
+
+</html>

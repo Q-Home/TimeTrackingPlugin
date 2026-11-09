@@ -89,6 +89,22 @@
     });
   }
 
+  function ensureAdminSettingsNav() {
+    if (shell.role !== "admin") return;
+
+    document.querySelectorAll("#iq-sidebar-toggle").forEach((menu) => {
+      if (menu.querySelector('a[href="settings.html"]')) return;
+
+      const item = document.createElement("li");
+      item.setAttribute("data-admin-only", "");
+      if (document.body.getAttribute("data-page") === "settings") {
+        item.className = "active active-menu";
+      }
+      item.innerHTML = '<a href="settings.html"><i class="las la-cog"></i><span>Settings</span></a>';
+      menu.appendChild(item);
+    });
+  }
+
   function applyProfileBox() {
     updateText("js-nametag", shell.username ? `Hallo ${shell.username}` : "Welkom");
 
@@ -128,6 +144,7 @@
 
   function init() {
     redirectAdminPageIfNeeded();
+    ensureAdminSettingsNav();
     applyRoleVisibility();
     applyProfileBox();
   }
