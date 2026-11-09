@@ -130,25 +130,20 @@ function renderLocations(locations) {
 
   if (locations.length === 0) {
     container.innerHTML = `
-      <div class="col-12">
-        <div class="tt-empty-state">
-          <i class="las la-map-marker-alt"></i>
-          <h5>Geen locatiegegevens</h5>
-          <p>Er zijn momenteel geen aanwezigen om per locatie te tonen.</p>
-        </div>
+      <div class="tt-empty-state">
+        <i class="las la-map-marker-alt"></i>
+        <h5>Geen locatiegegevens</h5>
+        <p>Er zijn momenteel geen aanwezigen om per locatie te tonen.</p>
       </div>
     `;
     return;
   }
 
   container.innerHTML = locations.map((location) => `
-    <div class="col-lg-4 col-md-6 mb-3">
-      <div class="tt-panel">
-        <span class="text-muted">Locatie</span>
-        <h4 class="mb-1">${escapeHtml(location.location || "Onbekend")}</h4>
-        <p class="mb-0">${location.count || 0} aanwezig</p>
-      </div>
-    </div>
+    <article class="tt-panel">
+      <h5 class="mb-1">${escapeHtml(location.location || "Onbekend")}</h5>
+      <p class="mb-0 text-muted">${location.count || 0} aanwezig</p>
+    </article>
   `).join("");
 }
 

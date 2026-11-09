@@ -1,5 +1,4 @@
-const currentHost = window.location.hostname;
-const apiUrl = `http://${currentHost}:5000/api/v1`;
+const apiUrl = "/api/v1";
 
 document.addEventListener("DOMContentLoaded", () => {
   const token = localStorage.getItem("access_token");
@@ -103,7 +102,7 @@ async function saveSettings(event) {
       throw new Error(result.error || "Instellingen opslaan mislukt.");
     }
 
-    window.branding?.apply(result.data);
+    await window.branding?.apply(result.data);
     showMessage("White-label instellingen opgeslagen.", "success");
   } catch (error) {
     showMessage(error.message, "danger");

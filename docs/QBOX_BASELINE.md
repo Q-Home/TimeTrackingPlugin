@@ -53,9 +53,9 @@ credentials into source control. The root Compose environment in `bin/.env` is t
 configuration used for container creation. Removing a tracked file does not erase
 old Git history or replace the need to rotate any previously exposed secrets.
 
-The frontend branding/settings code currently calls HTTP port 5000 directly,
-matching the supplied Qbox baseline. Account for this before closing that port or
-putting the UI behind HTTPS; migrate those requests separately with tests.
+The frontend reads and saves branding via the webapp's `/api/v1/settings/branding`
+path. Nginx forwards those requests to the backend, so branding also works when
+the Qbox serves the webapp over HTTPS or the direct API uses another host port.
 
 ## Deployment procedure
 

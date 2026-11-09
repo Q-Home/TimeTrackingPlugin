@@ -11,7 +11,7 @@
     <meta http-equiv="X-Frame-Options" content="DENY">
     <meta http-equiv="X-XSS-Protection" content="1; mode=block">
 
-    <title>User Timesheet - Q-Home</title>
+    <title>User Timesheet - Time Tracking System</title>
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="images/timetracking-favicon.svg" />
@@ -26,6 +26,7 @@
     <!-- Responsive CSS -->
     <link rel="stylesheet" href="css/responsive.css">
     <link rel="stylesheet" href="css/timetracking-ui.css">
+    <script src="js/branding.js"></script>
 
     <!-- Chart.js for charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -44,9 +45,10 @@
         <div class="iq-sidebar">
             <div class="iq-sidebar-logo d-flex justify-content-between">
                 <a href="badgelist.html" class="header-logo tt-shell-brand">
-                    <img src="images/logo.png" class="img-fluid" alt="Logo">
+                    <span class="tt-brand-mark" aria-hidden="true"></span>
                     <div class="tt-shell-brand__text">
-                        <span class="tt-shell-brand__title">Q-Home</span>
+                        <span class="tt-shell-brand__eyebrow">Q-Home</span>
+                        <span class="tt-shell-brand__title">TimeTracking</span>
                     </div>
                 </a>
             </div>
@@ -88,7 +90,7 @@
                             </a>
                             <div>
                                 <h4 class="mb-0 text-dark" id="timesheet-page-title">User Timesheet</h4>
-                                <p class="mb-0" id="timesheet-page-subtitle"><span class="text-primary">Q-Home,</span> View user hours and
+                                <p class="mb-0" id="timesheet-page-subtitle"><span class="text-primary">Time Tracking,</span> View user hours and
                                     statistics</p>
                             </div>
                           </div>
@@ -96,10 +98,6 @@
                             <span class="tt-admin-pill" id="timesheet-role-pill">Period overview</span>
                           </div>
                         </div>
-                    </div>
-                    <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                        <ul class="navbar-nav ml-auto navbar-list">
-                        </ul>
                     </div>
                     <ul class="navbar-list">
                         <li class="line-height">
@@ -361,7 +359,6 @@
     <!-- Select2 JavaScript -->
     <script src="js/select2.min.js"></script>
     <script src="js/custom.js"></script>
-    <script src="js/branding.js"></script>
     <script src="js/app-shell.js"></script>
     <script src="js/get-timesheetdata.js"></script>
 </body>
