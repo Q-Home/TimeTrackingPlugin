@@ -8,6 +8,7 @@ security or time-calculation issues are resolved.
 
 ## Documentation
 
+- [Own password and nightly automatic closing (1.2.1)](docs/ACCOUNT_AND_NIGHT_CLOSE.md)
 - [Loxone user totals: setup, versions, diagnosis and limitations (1.2.0)](docs/LOXONE_USER_HOURS_SYNC.md)
 - [HR timekeeping, screenshots, migration and limitations (1.1.0)](docs/HR_GUIDE.md)
 - [Qbox baseline, configuration and update procedure](docs/QBOX_BASELINE.md)

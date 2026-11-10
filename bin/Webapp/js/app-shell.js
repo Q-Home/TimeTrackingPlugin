@@ -143,6 +143,7 @@
   }
 
   function init() {
+    document.querySelectorAll('#iq-sidebar-toggle').forEach(menu=>{const item=document.createElement('li');const link=document.createElement('a');link.href='account.html';link.textContent='Mijn wachtwoord';item.appendChild(link);menu.appendChild(item);});
     document.querySelectorAll('#iq-sidebar-toggle').forEach(menu => {
       const views = ['admin','hr'].includes(shell.role)
         ? [['dashboard','HR-overzicht'],['hours','Urenoverzicht'],['review','Te controleren'],['settings','HR-instellingen']]

@@ -351,25 +351,37 @@ class UserService:
             self.log_repository.error(f"Error updating user {user_id}: {e}")
             return error_response("Failed to update user", 500)
 
-    def update_password_by_id(self, user_id, data):
+    def update_password_by_id(self, user_id, data, require_current=False):
         try:
+            if not isinstance(data,dict):return error_response('Verstuur geldige wachtwoordvelden.',400)
             existing_user = self.user_repository.find_by_id(user_id)
             if not existing_user:
                 return error_response("User not found", 404)
 
-            password = data.get("password", "").strip()
-            if len(password) < 6:
-                return error_response("Password must be at least 6 characters", 400)
+            password = data.get("password", "")
+            if not isinstance(password,str):
+                return error_response('Geef een geldig nieuw wachtwoord.',400)
+            if len(password) < 6 or not password.strip():
+                return error_response('Het nieuwe wachtwoord moet minstens 6 tekens bevatten.',400)
+            if len(password.encode('utf-8'))>72:
+                return error_response('Het nieuwe wachtwoord is te lang (maximaal 72 UTF-8 bytes).',400)
+            if require_current:
+                current=data.get('current_password')
+                if not isinstance(current,str) or not current:
+                    return error_response('Vul je huidige wachtwoord in.',400)
+                try:valid=bcrypt.checkpw(current.encode('utf-8'),existing_user['password'].encode('utf-8'))
+                except (ValueError,KeyError,TypeError):valid=False
+                if not valid:return error_response('Je huidige wachtwoord is niet juist.',400)
 
             hashed_pw = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
 
-            result = self.user_repository.update_by_id(user_id, {
+            result = self.user_repository.update_password_if_unchanged(user_id, existing_user.get('password'), {
                 "password": hashed_pw.decode("utf-8"),
                 "updated_at": DateHelper.utc_now()
             })
 
             if result.matched_count == 0:
-                return error_response("User not found", 404)
+                return error_response('Het account is ondertussen gewijzigd. Vernieuw en probeer opnieuw.',409)
 
             self.log_repository.info(f"Password updated for user id: {user_id}")
             return success_response(None, "Password updated successfully", 200)

@@ -38,5 +38,8 @@ def register_user_routes(service,prefix):
     @bp.route(prefix+'/users/<uid>',methods=['PUT'])
     def update(uid):return service.update_user_by_id(uid,request.get_json() or {},allow_privileged_fields=owner(uid))
     @bp.route(prefix+'/users/<uid>/password',methods=['PUT'])
-    def password(uid):owner(uid);return service.update_password_by_id(uid,request.get_json() or {})
+    def password(uid):
+        privileged=owner(uid)
+        own=not is_trusted_internal_request() and principal()['id']==uid
+        return service.update_password_by_id(uid,request.get_json() or {},require_current=own or not privileged)
     return bp
