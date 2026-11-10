@@ -15,6 +15,8 @@ DEFAULT_RULES = {
     'auto_stop_rule': 'elapsed', 'balance_alert_minutes': 0,
     'approval_required': True, 'allow_approval_with_anomalies': False,
     'notifications_enabled': True, 'export_delimiter': ';',
+    'default_workday_minutes': 480, 'rounding_minutes': 5,
+    'rounding_start': 'up', 'rounding_stop': 'down',
 }
 
 
@@ -31,7 +33,11 @@ def day(value): return date.fromisoformat(str(value)[:10])
 def policy(state, on):
     versions = [p for p in state.get('policies', []) if p['effective_from'] <= str(on)]
     chosen = max(versions, key=lambda p: p['effective_from']) if versions else {}
-    return {**DEFAULT_RULES, **chosen.get('rules', {}), 'timezone':state.get('timezone',DEFAULT_RULES['timezone'])}
+    defaults = dict(DEFAULT_RULES)
+    # A persisted upgrade date prevents changing historical approvals.
+    if not state.get('default_regime_from') or str(on) < state['default_regime_from']:
+        defaults.update(default_workday_minutes=0, rounding_minutes=0)
+    return {**defaults, **chosen.get('rules', {}), 'timezone':state.get('timezone',DEFAULT_RULES['timezone'])}
 
 
 def local_bounds(on, timezone_name):
@@ -43,10 +49,14 @@ def local_bounds(on, timezone_name):
 def expected(state, employee, on):
     assignments = [a for a in state.get('assignments', [])
                    if a['employee_id'] == employee['id'] and a['effective_from'] <= str(on)]
-    if not assignments: return None
-    assignment = max(assignments, key=lambda a: a['effective_from'])
-    schedule = next(s for s in state['schedules'] if s['id'] == assignment['schedule_id'])
-    minutes = schedule['days'][on.weekday()]['minutes']
+    if assignments:
+        assignment = max(assignments, key=lambda a: a['effective_from'])
+        schedule = next(s for s in state['schedules'] if s['id'] == assignment['schedule_id'])
+        minutes = schedule['days'][on.weekday()]['minutes']
+    else:
+        fallback = policy(state, on)['default_workday_minutes']
+        if not fallback: return None
+        minutes = fallback if on.weekday() < 5 else 0
     # Explicit calendar entries override the base norm, without stacking deductions.
     entries = [c for c in state.get('calendar', []) if c['start'] <= str(on) <= c['end']
                and (not c.get('employee_id') or c['employee_id'] == employee['id'])
@@ -56,6 +66,18 @@ def expected(state, employee, on):
         if entry['effect'] == 'zero': minutes = 0
         elif entry['effect'] == 'hours': minutes = entry['minutes']
     return int(minutes * 60)
+
+
+def rounded_instant(value, rules, direction):
+    step = rules['rounding_minutes'] * 60 * 1_000_000
+    if not step: return value
+    local = value.astimezone(ZoneInfo(rules['timezone']))
+    elapsed = ((local.hour*60+local.minute)*60+local.second)*1_000_000+local.microsecond
+    remainder = elapsed % step
+    delta = (-remainder if direction == 'down' else
+             step-remainder if direction == 'up' and remainder else
+             (step-remainder if remainder*2 >= step else -remainder) if direction == 'nearest' else 0)
+    return value + timedelta(microseconds=delta)
 
 
 def effective_events(raw, corrections):
@@ -125,6 +147,23 @@ def calculate(events, state, employee, start, end, now=None, as_of=None):
             days[str(start)]['anomalies'].append({'code':'invalid_timestamp',
                 'message':'Een bronregistratie heeft geen geldig tijdstip.', 'event_id':str(event.get('_id',''))})
     status, opened, open_event, session_started = 'idle', None, None, None
+    segments = []
+    previous_end = None
+
+    def finish_session(stop, provisional=False):
+        nonlocal previous_end
+        start_rules = policy(state, session_started.astimezone(tz).date())
+        left = rounded_instant(session_started, start_rules, start_rules['rounding_start'])
+        # A live session has no stop to round. Closed stops use their own local-date policy.
+        stop_rules = policy(state, stop.astimezone(tz).date())
+        right = stop if provisional else rounded_instant(stop, stop_rules, stop_rules['rounding_stop'])
+        if previous_end is not None: left = max(left, previous_end)
+        for i, (a, b, kind) in enumerate(segments):
+            if i == 0: a = min(a, left)
+            if i == len(segments)-1: b = max(b, right)
+            interval(max(a, left), min(b, right), kind, provisional and i == len(segments)-1)
+        previous_end = max(previous_end or right, right)
+        segments.clear()
     for ts, ident, action, event in sorted(parsed, key=lambda e:(e[0], e[1])):
         action = {'SCAN_IN':'START', 'SCAN_OUT':'STOP'}.get(action, action)
         key = str(ts.astimezone(tz).date())
@@ -137,6 +176,10 @@ def calculate(events, state, employee, start, end, now=None, as_of=None):
                 'correction_id':event.get('_correction_id')})
             if source != 'physical': row['corrections'].append(ident)
             if source == 'automatic': anomaly(ts, 'automatic_stop', 'Automatisch afgesloten; controle vereist.', ident)
+        if key in days and action in {'START','STOP'}:
+            event_rules = policy(state, day(key))
+            if event_rules['rounding_minutes']:
+                row['events'][-1]['calculation_timestamp'] = iso(rounded_instant(ts, event_rules, event_rules['rounding_start' if action == 'START' else 'rounding_stop']))
         if action == 'SCAN': continue
         if action == 'START':
             if status != 'idle': anomaly(ts, 'duplicate_start', 'Dubbele start zonder geldige stop.', ident)
@@ -144,18 +187,20 @@ def calculate(events, state, employee, start, end, now=None, as_of=None):
         elif action == 'BREAK':
             if status != 'working': anomaly(ts, 'invalid_break', 'Pauze zonder open werkperiode.', ident)
             else:
-                interval(opened, ts, 'work'); status, opened = 'on_break', ts
+                segments.append((opened, ts, 'work')); status, opened = 'on_break', ts
         elif action == 'RETURN':
             if status != 'on_break': anomaly(ts, 'invalid_return', 'Hervatting zonder open pauze.', ident)
             else:
-                interval(opened, ts, 'break'); status, opened = 'working', ts
+                segments.append((opened, ts, 'break')); status, opened = 'working', ts
         elif action == 'STOP':
             if status == 'idle': anomaly(ts, 'missing_start', 'Stop zonder start.', ident)
             else:
-                interval(opened, ts, 'work' if status == 'working' else 'break')
+                segments.append((opened, ts, 'work' if status == 'working' else 'break'))
+                finish_session(ts)
                 status, opened, open_event, session_started = 'idle', None, None, None
     if opened:
-        interval(opened, horizon, 'work' if status == 'working' else 'break', True)
+        segments.append((opened, horizon, 'work' if status == 'working' else 'break'))
+        finish_session(horizon, True)
         for key, row in days.items():
             lo, hi = local_bounds(day(key), timezone_name)
             if hi > opened and lo < horizon:

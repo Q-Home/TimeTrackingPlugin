@@ -45,6 +45,29 @@ class HRService:
             'profiles':{}, 'pending_ingest':{}, 'proposals':[],
         }
 
+    def initialize_defaults(self):
+        """Activate new defaults once, using the same revision fence as HR writes."""
+        for _ in range(20):
+            before = self.state()
+            if before.get('default_regime_from'): return
+            state = deepcopy(before)
+            tz = ZoneInfo(state.get('timezone', DEFAULT_RULES['timezone']))
+            effective = datetime.now(timezone.utc).astimezone(tz).date()
+            for approval in state['approvals']:
+                if approval['status'] in {'approved', 'closed'}:
+                    effective = max(effective, day(approval['end']) + timedelta(days=1))
+            state['default_regime_from'] = str(effective)
+            self.audit(state, 'system:upgrade', 'default_regime', None,
+                       {'effective_from': str(effective), 'workday_minutes': 480,
+                        'rounding_minutes': 5, 'start': 'up', 'stop': 'down'},
+                       'Standaard werkregime en afronding vanaf versie 1.2.3')
+            try:
+                self.commit(before, state)
+                return
+            except HRError as exc:
+                if exc.status != 409: raise
+        raise HRError('Initialisatie is druk bezet. Probeer opnieuw.', 409)
+
     def employees(self, state=None, include_unresolved=False):
         state = state or self.state()
         result = []
@@ -285,6 +308,9 @@ class HRService:
                 if rules['auto_stop_rule'] not in {'elapsed','scheduled_end'}:raise HRError('Ongeldige automatische eindtijdregel.')
                 for field,lo,hi in [('automatic_break_minutes',0,720),('automatic_break_after_minutes',1,1440),('max_open_hours',1,168),('auto_stop_hours',0.25,24),('balance_alert_minutes',0,10080)]:
                     if isinstance(rules[field],bool) or not isinstance(rules[field],(int,float)) or not lo<=rules[field]<=hi:raise HRError('Ongeldige waarde voor '+field+'.')
+                if isinstance(rules['rounding_minutes'],bool) or not isinstance(rules['rounding_minutes'],int) or rules['rounding_minutes'] not in (0,1,5,10,15,30,60):raise HRError('Kies een geldige afrondingsstap.')
+                if any(not isinstance(rules[field],str) or rules[field] not in {'up','down','nearest'} for field in ('rounding_start','rounding_stop')):raise HRError('Kies een geldige afrondingsrichting.')
+                if isinstance(rules['default_workday_minutes'],bool) or not isinstance(rules['default_workday_minutes'],int) or not 0<=rules['default_workday_minutes']<=1440:raise HRError('Ongeldige standaard dagnorm.')
                 for field in ('approval_required','allow_approval_with_anomalies','notifications_enabled'):
                     if not isinstance(rules[field],bool):raise HRError('Gebruik aan/uit voor '+field+'.')
                 try:datetime.strptime(rules['auto_stop_at'],'%H:%M')
@@ -457,7 +483,8 @@ class HRService:
     def settings_view(self,state=None):
         state=state or self.state()
         return {'revision':state['revision'],'schedules':state['schedules'],'assignments':state['assignments'],
-            'calendar':state['calendar'],'policies':state['policies'],'rules':policy(state,datetime.now(timezone.utc).date()),
+            'calendar':state['calendar'],'policies':state['policies'],'rules':policy(state,datetime.now(timezone.utc).astimezone(ZoneInfo(state.get('timezone',DEFAULT_RULES['timezone']))).date()),
+            'default_regime_from':state.get('default_regime_from'),
             'profiles':state['profiles'],'pending_ingest':state['pending_ingest'],
             'requests':state['requests'],'approvals':state['approvals'],'proposals':state['proposals']}
 

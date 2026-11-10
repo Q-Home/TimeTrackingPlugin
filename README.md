@@ -27,3 +27,5 @@ python -m unittest discover -s tests -v
 Tests use an in-memory MongoDB substitute, never a running Qbox database or broker.
 Local installation secrets belong in `bin/.env`; start with `bin/.env.example` and
 set real values privately. Do not commit `.env`, local settings or production logs.
+
+Zie [versie 1.2.3: afronding en standaard werkregime](docs/ROUNDING_AND_DEFAULT_REGIME.md) voor de nieuwe HR-instellingen.
