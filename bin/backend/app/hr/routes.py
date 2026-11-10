@@ -5,6 +5,7 @@ from flask import Blueprint, Response, current_app, g, jsonify, request
 from flask_jwt_extended import get_jwt, get_jwt_identity, verify_jwt_in_request
 from app.hr.engine import day, policy
 from app.hr.service import HRError, clean
+from app.constants.roles import Roles
 
 HR_ROLES={'admin','hr'}
 TECH_ROLES={'admin','technical_admin'}
@@ -21,6 +22,8 @@ def principal():
         except Exception:pass
     if not user:user=service.db.users.find_one({'username':get_jwt_identity()})
     if not user or user.get('blocked'):raise HRError('Je sessie is niet meer geldig. Meld opnieuw aan.',401)
+    if user.get('role',Roles.USER) not in Roles.WEB_LOGIN:
+        raise HRError(Roles.REGISTRATION_ONLY_MESSAGE,403)
     g.hr_principal={'id':str(user['_id']),'username':user['username'],'role':user.get('role','user')}
     return g.hr_principal
 

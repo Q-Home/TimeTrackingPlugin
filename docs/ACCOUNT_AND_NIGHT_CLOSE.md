@@ -1,5 +1,7 @@
 # Eigen wachtwoord en nachtelijke afsluiting — 1.2.1
 
+**Update 1.2.2:** volgens de nieuwe toegangsafspraak hebben medewerkers geen Qtime-webtoegang. De wachtwoordfunctie hieronder blijft voor HR en bevoegde beheerders beschikbaar. De nachtelijke afsluiting blijft behouden. Zie [automatische medewerkers en toegang](AUTOMATIC_EMPLOYEES.md).
+
 ## Eigen wachtwoord
 
 Iedere aangemelde medewerker ziet **Mijn wachtwoord** in de navigatie van de HR-omgeving, ook op mobiel. Voer het huidige wachtwoord in, kies een nieuw wachtwoord, herhaal het en sla op. De velden worden na succes gewist. Het nieuwe wachtwoord geldt voor TimeTracking; het verandert geen Miniservercredentials.

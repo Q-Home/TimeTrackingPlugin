@@ -27,7 +27,14 @@ class AuthService:
         if user.get("blocked", False):
             return error_response("Account is blocked", 403)
 
-        if not bcrypt.checkpw(password.encode("utf-8"), user["password"].encode("utf-8")):
+        if user.get('role',Roles.USER) not in Roles.WEB_LOGIN:
+            return error_response(Roles.REGISTRATION_ONLY_MESSAGE,403)
+
+        try:
+            stored=user.get('password')
+            valid=isinstance(stored,str) and bcrypt.checkpw(password.encode('utf-8'),stored.encode('utf-8'))
+        except (ValueError,TypeError):valid=False
+        if not valid:
             return error_response("Invalid login credentials", 401)
 
         access_token = create_access_token(

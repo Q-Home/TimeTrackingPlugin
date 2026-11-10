@@ -37,19 +37,19 @@ class AccountPasswordTests(unittest.TestCase):
             uid=self.db.users.insert_one({'username':'synthetic.'+role,'email':role+'@example.invalid','role':role,'password':self.old_hash,'blocked':False}).inserted_id
             self.ids[role]=str(uid)
             with self.app.app_context():self.tokens[role]=create_access_token(identity='synthetic.'+role,additional_claims={'employee_id':str(uid),'role':role})
-    def change(self,role='user',target=None,**data):
+    def change(self,role='hr',target=None,**data):
         return self.client.put('/api/v1/users/'+(target or self.ids[role])+'/password',json=data,
             headers={'Authorization':'Bearer '+self.tokens[role]})
-    def test_employee_changes_own_password_and_old_login_stops_working(self):
+    def test_hr_changes_own_password_and_old_login_stops_working(self):
         response=self.change(password=' synthetic new password ',current_password='synthetic-old-password')
         self.assertEqual(response.status_code,200,response.json)
         for password,status in [('synthetic-old-password',401),(' synthetic new password ',200)]:
-            self.assertEqual(self.client.post('/api/v1/login',json={'username':'synthetic.user','password':password}).status_code,status)
+            self.assertEqual(self.client.post('/api/v1/login',json={'username':'synthetic.hr','password':password}).status_code,status)
     def test_missing_or_wrong_current_password_does_not_change_hash(self):
         for current in (None,'wrong'):
             response=self.change(password='synthetic-new-password',current_password=current)
             self.assertEqual(response.status_code,400)
-        self.assertEqual(self.db.users.find_one({'_id':ObjectId(self.ids['user'])})['password'],self.old_hash)
+        self.assertEqual(self.db.users.find_one({'_id':ObjectId(self.ids['hr'])})['password'],self.old_hash)
     def test_employee_and_hr_cannot_change_other_accounts(self):
         for role in ('user','hr'):
             self.assertEqual(self.change(role,target=self.ids['technical_admin'],password='synthetic-new-password').status_code,403)
@@ -60,7 +60,7 @@ class AccountPasswordTests(unittest.TestCase):
         for value in ('short',' '*6,'é'*37,12345):
             self.assertEqual(self.change(password=value,current_password='synthetic-old-password').status_code,400)
     def test_blocked_and_anonymous_accounts_are_rejected(self):
-        self.db.users.update_one({'_id':ObjectId(self.ids['user'])},{'$set':{'blocked':True}})
+        self.db.users.update_one({'_id':ObjectId(self.ids['hr'])},{'$set':{'blocked':True}})
         self.assertEqual(self.change(password='synthetic-new-password',current_password='synthetic-old-password').status_code,401)
         self.assertEqual(self.client.put('/api/v1/users/'+self.ids['user']+'/password',json={'password':'synthetic-new-password'}).status_code,401)
     def test_password_update_has_a_compare_and_swap(self):

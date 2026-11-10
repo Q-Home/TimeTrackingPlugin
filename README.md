@@ -8,6 +8,7 @@ security or time-calculation issues are resolved.
 
 ## Documentation
 
+- [Automatic employees and Qtime access policy (1.2.2)](docs/AUTOMATIC_EMPLOYEES.md)
 - [Own password and nightly automatic closing (1.2.1)](docs/ACCOUNT_AND_NIGHT_CLOSE.md)
 - [Loxone user totals: setup, versions, diagnosis and limitations (1.2.0)](docs/LOXONE_USER_HOURS_SYNC.md)
 - [HR timekeeping, screenshots, migration and limitations (1.1.0)](docs/HR_GUIDE.md)

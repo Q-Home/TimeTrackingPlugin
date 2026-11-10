@@ -197,13 +197,13 @@ class APIRoleTests(unittest.TestCase):
         self.assertEqual(self.client.get('/api/v1/hr/config',headers=self.headers('technical_admin')).status_code,403)
         self.assertEqual(self.client.get('/api/v1/hr/system',headers=self.headers('technical_admin')).status_code,200)
         self.assertEqual(self.client.get('/api/v1/dashboard/summary',headers=self.headers('technical_admin')).status_code,403)
-    def test_employee_sees_own_hours_and_can_only_request_correction(self):
-        self.assertEqual(self.client.get('/api/v1/hr/details/'+self.ids['user']+'?start=2020-01-01&end=2020-01-01',headers=self.headers('user')).status_code,200)
+    def test_employee_has_no_web_access_even_with_a_preexisting_token(self):
+        self.assertEqual(self.client.get('/api/v1/hr/details/'+self.ids['user']+'?start=2020-01-01&end=2020-01-01',headers=self.headers('user')).status_code,403)
         self.assertEqual(self.client.get('/api/v1/hr/details/'+self.ids['hr']+'?start=2020-01-01&end=2020-01-01',headers=self.headers('user')).status_code,403)
         self.assertEqual(self.client.post('/api/v1/hr/corrections',headers=self.headers('user'),json={}).status_code,403)
         self.assertEqual(self.client.post('/api/v1/badges/',headers=self.headers('user'),json={'action':'START'}).status_code,403)
         response=self.client.post('/api/v1/hr/requests',headers=self.headers('user'),json={'revision':0,'reason':'Synthetic missing start','proposed':{'action':'START','local_time':'2020-01-01T08:00'}})
-        self.assertEqual(response.status_code,201,response.json)
+        self.assertEqual(response.status_code,403,response.json)
     def test_blocked_account_and_stale_role_claims_are_rechecked(self):
         self.db.users.update_one({'_id':ObjectId(self.ids['hr'])},{'$set':{'role':'user'}})
         self.assertEqual(self.client.get('/api/v1/hr/config',headers=self.headers('hr')).status_code,403)
@@ -214,7 +214,7 @@ class APIRoleTests(unittest.TestCase):
         response=self.client.get('/api/v1/badges/'+str(own),headers=self.headers('user'))
         self.assertEqual(response.status_code,403)
         response=self.client.get('/api/v1/badges/',headers=self.headers('user'))
-        self.assertEqual(response.status_code,200);self.assertEqual(response.json['data']['badges'],[])
+        self.assertEqual(response.status_code,403)
 
     def test_internal_network_alone_is_not_an_authorization(self):
         self.assertEqual(self.client.post('/api/v1/badges/',json={'action':'START'}).status_code,401)

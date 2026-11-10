@@ -42,7 +42,7 @@ document.addEventListener("DOMContentLoaded", function () {
     clearLoginError();
 
     const usernameOrEmail = document.getElementById("username").value.trim();
-    const password = document.getElementById("password").value.trim();
+    const password = document.getElementById("password").value;
 
     console.debug("Formulier verzonden met gegevens:", {
       usernameOrEmail,
@@ -69,7 +69,6 @@ document.addEventListener("DOMContentLoaded", function () {
       });
 
       const responseData = await response.json();
-      console.debug("Login response:", responseData);
 
       if (response.status === 200) {
         const token = responseData?.data?.access_token;
