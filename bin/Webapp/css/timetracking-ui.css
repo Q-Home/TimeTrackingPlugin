@@ -123,10 +123,13 @@ a {
 .tt-login-shell {
   min-height: 100vh;
   min-height: 100dvh;
+  display: grid;
+  place-items: center;
   padding: var(--tt-gutter);
 }
 
 .tt-login-card {
+  width: min(100%, max(300px, 25vw));
   padding: clamp(16px, 1.8vw, 28px);
   border-radius: var(--tt-radius);
   background: radial-gradient(ellipse at top right, var(--tt-accent-soft), transparent 55%), var(--tt-surface);
@@ -200,21 +203,15 @@ a {
   overflow-wrap: anywhere;
 }
 
-@media (min-width: 768px) {
-  .tt-login-form {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
-    align-items: end;
-    gap: var(--tt-section-gap);
+@media (max-width: 575.98px), (max-height: 500px) {
+  .tt-login-shell {
+    align-items: start;
   }
+}
 
-  .tt-login-form .form-group,
-  .login-error {
-    margin: 0;
-  }
-
-  .login-error {
-    grid-column: 1 / -1;
+@media (max-width: 575.98px) {
+  .tt-login-card {
+    width: 100%;
   }
 }
 
