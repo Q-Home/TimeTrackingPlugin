@@ -58,6 +58,8 @@ def create_app():
 
     log_repository = LogRepository(mongo)
     user_repository = UserRepository(mongo)
+    from app.services.employee_provisioning import EmployeeProvisioning
+    app.extensions['employee_provisioning']=EmployeeProvisioning(mongo.db,hr_service)
     badge_repository = BadgeRepository(mongo)
     settings_repository = SettingsRepository(mongo)
 

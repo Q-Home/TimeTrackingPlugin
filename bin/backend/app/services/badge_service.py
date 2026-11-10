@@ -172,11 +172,16 @@ class BadgeService:
             return error_response("Invalid badge ID or internal error", 400)
 
     def create_badge_log(self, data):
+        if not isinstance(data,dict):return error_response('Verstuur een geldige registratie.',400)
         validation = BadgeValidator.validate_create_badge(data)
         if validation:
             return validation
 
         try:
+            from flask import current_app
+            from app.decorators.internal_request import is_trusted_internal_request
+            from app.services.employee_provisioning import EmployeeProvisioning
+            data=EmployeeProvisioning.normalize(data)
             timestamp = self._parse_optional_datetime(data.get("timestamp"))
             created_at = self._parse_optional_datetime(data.get("created_at"))
             updated_at = self._parse_optional_datetime(data.get("updated_at"))
@@ -197,12 +202,21 @@ class BadgeService:
                 updated_at=updated_at,
             )
 
-            result = self.badge_repository.insert_badge(badge.to_mongo_dict())
+            record=badge.to_mongo_dict()
+            provisioning={'status':'not_requested','user':None}
+            if is_trusted_internal_request():
+                provisioning=current_app.extensions['employee_provisioning'].ensure(data)
+                if provisioning['user']:record['employee_id']=str(provisioning['user']['_id'])
+                if provisioning['status']=='identity_conflict':
+                    record['provisioning_conflict']=provisioning['identity_key']
+                    self.log_repository.warning('Loxone-medewerkerkoppeling vereist controle; bronregistratie blijft bewaard.')
+            result = self.badge_repository.insert_badge(record)
             self.log_repository.info(f"Badge log created: {badge.badge_code} - {badge.action}")
 
             return success_response({
-                "id": str(result.inserted_id),
-                **badge.to_dict()
+                **badge.to_dict(),
+                'id':str(result.inserted_id),'employee_id':record.get('employee_id'),
+                'provisioning_status':provisioning['status']
             }, "Badge log created successfully", 201)
 
         except ValueError as e:

@@ -1,5 +1,7 @@
 # HR-tijdregistratie — versie 1.1.0
 
+**Toegangsafspraak vanaf 1.2.2:** medewerkers worden automatisch aangemaakt voor Loxone-registraties en mogen niet aanmelden op Qtime. Alleen HR en bevoegde beheerders hebben webtoegang. Oudere passages hieronder over medewerkerinzage, aanvragen en eigen wachtwoord zijn daarmee vervallen. Zie [automatische medewerkers](AUTOMATIC_EMPLOYEES.md).
+
 Deze uitbreiding voegt dagelijks HR-beheer toe aan de bestaande LoxBerry/Q-Box-plugin. De bestaande branding, MQTT-koppeling, lokale configuratie en MongoDB-volumes blijven behouden. De urenberekening is gedeeld door het nieuwe scherm en de bestaande timesheet-API. Dit document beschrijft de nieuwe werking; het functionele overzicht van de Qbox-baseline beschrijft de situatie vóór deze uitbreiding.
 
 ## Dagelijks gebruik

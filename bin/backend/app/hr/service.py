@@ -13,6 +13,7 @@ import re
 import uuid
 from zoneinfo import ZoneInfo
 from pymongo.errors import DuplicateKeyError
+from app.utils.external_identity import external_id_values
 from app.hr.engine import (ACTIONS, DEFAULT_RULES, calculate, day, effective_events,
                            expected, fingerprint, instant, iso, local_bounds, policy)
 
@@ -70,17 +71,39 @@ class HRService:
 
     @staticmethod
     def identity_key(event):
+        if event.get('provisioning_conflict'):return event['provisioning_conflict']
+        if event.get('user_id') not in (None,''):return 'external:'+str(event['user_id'])
         if event.get('username'): return 'username:'+str(event['username'])
-        if event.get('user_id'): return 'external:'+str(event['user_id'])
         return 'event:'+str(event.get('_id','unknown'))
 
     def resolve(self, event, state=None, users=None):
         state = state or self.state()
+        if event.get('provisioning_conflict'):
+            return state['identity_links'].get(event['provisioning_conflict']) or 'unresolved:'+fingerprint(event['provisioning_conflict'])[:20]
         if event.get('employee_id'): return str(event['employee_id'])
+        external=event.get('user_id')
+        if external not in (None,''):
+            external_key='external:'+str(external)
+            if external_key in state['identity_links']:return state['identity_links'][external_key]
+            candidates=[u for u in users if str(u.get('user_id',''))==str(external)] if users is not None else list(self.db.users.find({'user_id':{'$in':external_id_values(external)}}))
+            if len(candidates)==1:return str(candidates[0]['_id'])
+            if len(candidates)>1:return 'unresolved:'+fingerprint(external_key)[:20]
         key = self.identity_key(event)
         if key in state['identity_links']: return state['identity_links'][key]
+        name_key='username:'+str(event.get('username',''))
+        if name_key in state['identity_links']:
+            uid=state['identity_links'][name_key]
+            aliased=next((u for u in users if str(u['_id'])==uid),None) if users is not None else None
+            if users is None:
+                from bson import ObjectId
+                try:aliased=self.db.users.find_one({'_id':ObjectId(uid)})
+                except (ValueError,TypeError):aliased=None
+            if aliased and (external in (None,'') or aliased.get('user_id') in (None,'') or str(aliased['user_id'])==str(external)):
+                return uid
         query = {'username':event['username']} if event.get('username') else {'user_id':event.get('user_id')} if event.get('user_id') else None
         candidates = [u for u in users if all(u.get(k)==v for k,v in query.items())] if query and users is not None else list(self.db.users.find(query)) if query else []
+        if external not in (None,''):
+            candidates=[u for u in candidates if u.get('user_id') in (None,'') or str(u['user_id'])==str(external)]
         if len(candidates)==1: return str(candidates[0]['_id'])
         return 'unresolved:'+fingerprint(key)[:20]
 

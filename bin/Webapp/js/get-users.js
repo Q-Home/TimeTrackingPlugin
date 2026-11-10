@@ -166,6 +166,10 @@ function normalizeUser(user) {
     email: user.email || "",
     user_role: user.user_role || user.role || "user",
     blocked: Boolean(user.blocked),
+    provisioned:Boolean(user.provisioned),
+    web_access:Boolean(user.web_access),
+    loxone_user_id:user.loxone_user_id||'',
+    email_is_placeholder:Boolean(user.email_is_placeholder),
     badge_code: normalizedBadgeCode,
     badge_codes: badgeCodes,
     primary_badge: badgeCodes[0] || "N/A",
@@ -223,7 +227,8 @@ function renderUsers() {
       <td>${escapeHtml(user.last_name || "-")}</td>
       <td>
         <strong>${escapeHtml(user.username || "-")}</strong>
-        <small class="timesheet-meta">${escapeHtml(user.email || "-")}</small>
+        <small class="timesheet-meta">${user.email_is_placeholder?'Geen e-mailadres':escapeHtml(user.email || "-")}</small>
+        <small class="timesheet-meta">${user.provisioned?'Automatisch uit Loxone · ':''}${user.web_access?'Qtime-toegang':'Geen Qtime-toegang'}${user.loxone_user_id?' · Loxone-userid: '+escapeHtml(user.loxone_user_id):''}</small>
       </td>
       <td>
         <span class="badge badge-outline-primary">${escapeHtml(user.primary_badge)}</span>

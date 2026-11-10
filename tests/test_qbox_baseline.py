@@ -111,7 +111,7 @@ class BaselineAPITests(unittest.TestCase):
                 'badge_code':None,'device_id':'synthetic-reader','location':'Test room',
                 'raw_data':{'synthetic':True},
             })
-        response = self.client.get('/api/v1/timesheets/example.user?date=2026-11-09',headers=self.headers(self.user))
+        response = self.client.get('/api/v1/timesheets/example.user?date=2026-11-09',headers=self.headers(self.admin))
         self.assertEqual(response.status_code,200,response.json)
         data = response.json['data']
         self.assertEqual(data['work_seconds'],8*3600)

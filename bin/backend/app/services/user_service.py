@@ -32,6 +32,9 @@ class UserService:
             ]
 
             badge_users = {}
+            identity_group=dict(pipeline[0]['$group']);identity_group['_id']='$employee_id'
+            employee_stats={str(item['_id']):item for item in self.badge_repository.aggregate_users_from_badges([
+                {'$match':{'employee_id':{'$exists':True,'$ne':None}}},{'$group':identity_group}])}
             for badge_user in self.badge_repository.aggregate_users_from_badges(pipeline):
                 username = badge_user.get("username", "")
                 if not username:
@@ -41,13 +44,22 @@ class UserService:
             users = []
             seen_usernames = set()
 
-            for db_user in self.user_repository.find_all():
+            registered_users=list(self.user_repository.find_all())
+            from flask import current_app
+            hr=current_app.extensions['hr_service'];identity_state=hr.state()
+            known_ids={str(u['_id']) for u in registered_users}
+            for db_user in registered_users:
                 username = db_user.get("username", "")
-                badge_user = badge_users.get(username, {})
+                badge_user = employee_stats.get(str(db_user['_id'])) or badge_users.get(username, {})
                 seen_usernames.add(username)
 
                 users.append({
                     "username": username,
+                    'employee_id':str(db_user['_id']),
+                    'loxone_user_id':db_user.get('user_id',''),
+                    'provisioned':db_user.get('provisioned_by')=='loxone',
+                    'web_access':db_user.get('role','user') in Roles.WEB_LOGIN and not db_user.get('blocked'),
+                    'account_exists':True,
                     "user_id": badge_user.get("user_id", str(db_user.get("_id", ""))),
                     "first_name": db_user.get("first_name", badge_user.get("first_name", "")),
                     "last_name": db_user.get("last_name", badge_user.get("last_name", "")),
@@ -58,12 +70,15 @@ class UserService:
                     "first_activity": DateHelper.to_iso(badge_user.get("first_activity")),
                     "company_name": db_user.get("company_name", ""),
                     "email": db_user.get("email", ""),
+                    'email_is_placeholder':bool(db_user.get('email_is_placeholder')),
                     "user_role": db_user.get("role", "user"),
                     "blocked": db_user.get("blocked", False),
                 })
 
             for username, badge_user in badge_users.items():
                 if username in seen_usernames:
+                    continue
+                if hr.resolve(badge_user,identity_state,registered_users) in known_ids:
                     continue
 
                 users.append({
@@ -112,6 +127,7 @@ class UserService:
                 "password",
                 "created_at",
                 "updated_at",
+                "provisioning_key", "provisioned_by", "user_id", "loxone_username", "email_is_placeholder",
             }
 
             extra_fields = {
@@ -304,6 +320,7 @@ class UserService:
                 "password",
                 "created_at",
                 "updated_at",
+                "provisioning_key", "provisioned_by", "user_id", "loxone_username", "email_is_placeholder",
             }
 
             sanitized_extra_fields = {
@@ -336,6 +353,8 @@ class UserService:
             }
 
             update_fields.update(sanitized_extra_fields)
+            if existing_user.get('email_is_placeholder') and new_email!=existing_user.get('email'):
+                update_fields['email_is_placeholder']=False
 
             from flask import current_app
             current_app.extensions['hr_service'].remember_username(existing_user['username'], new_username, user_id)
