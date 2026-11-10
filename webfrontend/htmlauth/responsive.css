@@ -1,0 +1,40 @@
+.tt-plugin {
+    padding-inline: clamp(16px, 1.6vw, 28px);
+    overflow-wrap: anywhere;
+}
+
+.tt-plugin .tt-card-heading,
+.tt-plugin .tt-log-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+}
+
+.tt-plugin .tt-card-heading {
+    justify-content: space-between;
+}
+
+.tt-plugin .tt-log-output {
+    height: min(400px, 60vh);
+    overflow: auto;
+    padding: 15px;
+    border-radius: 4px;
+    background: #f8f9fa;
+    font: 12px/1.5 ui-monospace, monospace;
+}
+
+@media (max-width: 575.98px) {
+    .tt-plugin .card-header,
+    .tt-plugin .card-body {
+        padding-inline: 12px;
+    }
+
+    .tt-plugin .btn {
+        min-height: 44px;
+    }
+
+    .tt-plugin :is(input, select, textarea).form-control {
+        font-size: 16px;
+    }
+}

@@ -269,7 +269,7 @@ Index Of Script
         };
         
         let Scrollbar = window.Scrollbar;
-        if (Scrollbar && jQuery('#sidebar-scrollbar').length) {
+        if (Scrollbar && jQuery('#sidebar-scrollbar').length && !document.body.hasAttribute('data-page')) {
             Scrollbar.init(document.querySelector('#sidebar-scrollbar'), options);
         }
         let Scrollbar1 = window.Scrollbar;

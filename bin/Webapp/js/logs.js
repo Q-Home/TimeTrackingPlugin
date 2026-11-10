@@ -157,7 +157,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const row = `
         <tr>
           <td><span class="badge badge-light">${escapeHtml(log.type || "Info")}</span></td>
-          <td>${escapeHtml(log.message || "")}</td>
+          <td class="tt-log-message">${escapeHtml(log.message || "")}</td>
           <td>${escapeHtml(formatTimestamp(log.timestamp))}</td>
         </tr>
       `;

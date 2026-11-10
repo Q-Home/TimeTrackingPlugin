@@ -27,6 +27,7 @@
     <link rel="stylesheet" href="css/responsive.css">
     <link rel="stylesheet" href="css/timetracking-ui.css">
     <script src="js/branding.js"></script>
+    <script defer src="js/responsive-nav.js"></script>
     <style>
       .timesheet-user-row {
          cursor: pointer;
@@ -148,16 +149,16 @@
                      </div>
                      <div class="iq-card-body">
                         <!-- Search and Filters -->
-                        <div class="row justify-content-between mb-3">
+                        <div class="row justify-content-between align-items-center mb-3">
                            <div class="col-sm-12 col-md-6">
-                              <div class="dataTables_filter">
+                              <div class="dataTables_filter mb-2 mb-md-0">
                                  <div class="form-group mb-0">
                                     <input type="search" class="form-control" id="userSearch" placeholder="Search users..." onkeyup="filterUsers()">
                                  </div>
                               </div>
                            </div>
                            <div class="col-sm-12 col-md-6">
-                              <div class="d-flex justify-content-end align-items-center">
+                              <div class="tt-list-toolbar justify-content-md-end">
                                  <label for="sortBy" class="mr-2 mb-0">Sort by:</label>
                                  <select id="sortBy" class="form-control form-control-sm w-auto" onchange="sortUsers()">
                                     <option value="username">Username</option>
@@ -181,7 +182,7 @@
                         </div>
 
                         <!-- Users Table -->
-                        <div id="users-table-container" class="table-responsive d-none">
+                        <div id="users-table-container" class="table-responsive d-none" tabindex="0" role="region" aria-label="Gebruikers">
                            <table id="user-list-table" class="table table-striped table-hover" role="grid">
                               <thead class="table-dark">
                                  <tr>
@@ -225,8 +226,8 @@
             </div>
 
             <!-- Statistics Cards - Newly Added -->
-            <div class="row mb-4">
-               <div class="col-lg-3 col-md-6">
+            <div class="row">
+               <div class="col-xl-3 col-sm-6">
                   <div class="iq-card">
                      <div class="iq-card-body">
                         <div class="d-flex justify-content-between">
@@ -241,7 +242,7 @@
                      </div>
                   </div>
                </div>
-               <div class="col-lg-3 col-md-6">
+               <div class="col-xl-3 col-sm-6">
                   <div class="iq-card">
                      <div class="iq-card-body">
                         <div class="d-flex justify-content-between">
@@ -256,7 +257,7 @@
                      </div>
                   </div>
                </div>
-               <div class="col-lg-3 col-md-6">
+               <div class="col-xl-3 col-sm-6">
                   <div class="iq-card">
                      <div class="iq-card-body">
                         <div class="d-flex justify-content-between">
@@ -271,7 +272,7 @@
                      </div>
                   </div>
                </div>
-               <div class="col-lg-3 col-md-6">
+               <div class="col-xl-3 col-sm-6">
                   <div class="iq-card">
                      <div class="iq-card-body">
                         <div class="d-flex justify-content-between">

@@ -13,7 +13,10 @@
 
   function ensureNoticeRegion() {
     let region = document.getElementById("app-notice-region");
-    if (region) return region;
+    if (region) {
+      region.classList.add("tt-notice-region");
+      return region;
+    }
 
     region = document.createElement("div");
     region.id = "app-notice-region";

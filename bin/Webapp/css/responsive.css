@@ -298,3 +298,19 @@ NOTE: This file contains the styling for responsive Template.
 	.iq-search-bar .searchbox { width: 160px; }
 	.navbar-list li.nav-item.nav-icon > a { margin-top: 20px; margin-bottom: 20px; }
 }
+
+.iq-error-page .height-self-center {
+	height: auto;
+	min-height: 100vh;
+	min-height: 100dvh;
+}
+
+.iq-error-page .iq-error {
+	padding: 20px 16px;
+}
+
+.iq-error-page .iq-error-img {
+	width: auto;
+	max-height: min(36vh, 320px);
+	object-fit: contain;
+}

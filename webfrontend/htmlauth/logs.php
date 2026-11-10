@@ -242,12 +242,13 @@ if ($mqtt_docker_logs === '') {
 
 <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<link rel="stylesheet" href="responsive.css">
 
-<div class="container mt-5">
-    <div class="col-lg-12">
+<div class="tt-plugin container-fluid mt-3">
+    <div class="col-lg-12 px-0">
 
-        <section class="card mb-4" aria-labelledby="mqtt-diagnostics-title">
-            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <section class="card mb-3" aria-labelledby="mqtt-diagnostics-title">
+            <div class="card-header bg-dark text-white tt-card-heading">
                 <h4 class="mb-0" id="mqtt-diagnostics-title"><i class="fas fa-satellite-dish" aria-hidden="true"></i> Diagnose Miniserver-koppeling</h4>
                 <button type="button" class="btn btn-outline-light btn-sm" onclick="refreshLogs()">Vernieuwen</button>
             </div>
@@ -274,23 +275,23 @@ if ($mqtt_docker_logs === '') {
         </section>
 
         <!-- Docker Logs -->
-        <div class="card mb-4">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white tt-card-heading">
                 <h4 class="mb-0"><i class="fas fa-docker"></i> Docker Logs</h4>
-                <div>
-                    <form method="POST" class="d-inline">
+                <div class="tt-log-actions">
+                    <form method="POST">
                         <button type="submit" name="clear_docker_log" class="btn btn-outline-light btn-sm" 
                                 onclick="return confirm('Are you sure you want to clear the Docker log?')">
                             <i class="fas fa-trash"></i> Clear Log
                         </button>
                     </form>
-                    <button class="btn btn-outline-light btn-sm ml-2" onclick="refreshLogs()">
+                    <button class="btn btn-outline-light btn-sm" onclick="refreshLogs()">
                         <i class="fas fa-refresh"></i> Refresh
                     </button>
                 </div>
             </div>
             <div class="card-body">
-                <div id="docker-log" style="height: 400px; overflow-y: auto; background: #f8f9fa; padding: 15px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px;">
+                <div id="docker-log" class="tt-log-output" tabindex="0">
                     <?= formatLogContent(readLogFile($docker_log, 200)) ?>
                 </div>
                 <small class="text-muted mt-2 d-block">
@@ -300,23 +301,23 @@ if ($mqtt_docker_logs === '') {
         </div>
 
         <!-- MQTT Logs -->
-        <div class="card mb-4">
-            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+        <div class="card mb-3">
+            <div class="card-header bg-success text-white tt-card-heading">
                 <h4 class="mb-0"><i class="fas fa-broadcast-tower"></i> MQTT Logs</h4>
-                <div>
-                    <form method="POST" class="d-inline">
+                <div class="tt-log-actions">
+                    <form method="POST">
                         <button type="submit" name="clear_mqtt_log" class="btn btn-outline-light btn-sm"
                                 onclick="return confirm('Are you sure you want to clear the MQTT log?')">
                             <i class="fas fa-trash"></i> Clear Log
                         </button>
                     </form>
-                    <button class="btn btn-outline-light btn-sm ml-2" onclick="refreshLogs()">
+                    <button class="btn btn-outline-light btn-sm" onclick="refreshLogs()">
                         <i class="fas fa-refresh"></i> Refresh
                     </button>
                 </div>
             </div>
             <div class="card-body">
-                <div id="mqtt-log" style="height: 400px; overflow-y: auto; background: #f8f9fa; padding: 15px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px;">
+                <div id="mqtt-log" class="tt-log-output" tabindex="0">
                     <?= formatLogContent(readLogFile($mqtt_log, 200)) ?>
                 </div>
                 <small class="text-muted mt-2 d-block">
@@ -325,8 +326,8 @@ if ($mqtt_docker_logs === '') {
             </div>
         </div>
 
-        <div class="card mb-4" id="mqtt-listener-output">
-            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <div class="card mb-3" id="mqtt-listener-output">
+            <div class="card-header bg-dark text-white tt-card-heading">
                 <h4 class="mb-0"><i class="fas fa-terminal"></i> MQTT Listener Container Output</h4>
                 <div>
                     <button class="btn btn-outline-light btn-sm" onclick="refreshLogs()">
@@ -335,7 +336,7 @@ if ($mqtt_docker_logs === '') {
                 </div>
             </div>
             <div class="card-body">
-                <div id="mqtt-container-log" style="height: 400px; overflow-y: auto; background: #f8f9fa; padding: 15px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px;">
+                <div id="mqtt-container-log" class="tt-log-output" tabindex="0">
                     <?= formatLogContent($mqtt_docker_logs) ?>
                 </div>
                 <small class="text-muted mt-2 d-block">
@@ -345,23 +346,23 @@ if ($mqtt_docker_logs === '') {
         </div>
 
         <!-- Application Logs -->
-        <div class="card mb-4">
-            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+        <div class="card mb-3">
+            <div class="card-header bg-info text-white tt-card-heading">
                 <h4 class="mb-0"><i class="fas fa-cog"></i> Application Logs</h4>
-                <div>
-                    <form method="POST" class="d-inline">
+                <div class="tt-log-actions">
+                    <form method="POST">
                         <button type="submit" name="clear_app_log" class="btn btn-outline-light btn-sm" 
                                 onclick="return confirm('Are you sure you want to clear the App log?')">
                             <i class="fas fa-trash"></i> Clear Log
                         </button>
                     </form>
-                    <button class="btn btn-outline-light btn-sm ml-2" onclick="refreshLogs()">
+                    <button class="btn btn-outline-light btn-sm" onclick="refreshLogs()">
                         <i class="fas fa-refresh"></i> Refresh
                     </button>
                 </div>
             </div>
             <div class="card-body">
-                <div id="app-log" style="height: 400px; overflow-y: auto; background: #f8f9fa; padding: 15px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px;">
+                <div id="app-log" class="tt-log-output" tabindex="0">
                     <?= formatLogContent(readLogFile($app_log, 200)) ?>
                 </div>
                 <small class="text-muted mt-2 d-block">

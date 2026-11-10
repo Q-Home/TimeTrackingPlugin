@@ -348,19 +348,18 @@ if ($usersResponse['success']) {
 
 <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<link rel="stylesheet" href="responsive.css">
 
-<div class="container-fluid mt-4">
+<div class="tt-plugin container-fluid mt-3">
     <div class="row">
         <!-- Settings Panel -->
-        <div class="col-lg-12 mb-4">
+        <div class="col-lg-12 mb-3">
             <div class="card">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0">
-                        <i class="fas fa-cog"></i> Instellingen & Verbinding
-                        <button class="btn btn-sm btn-outline-dark float-right" type="button" data-toggle="collapse" data-target="#settingsCollapse">
-                            <i class="fas fa-chevron-down"></i> Toon/Verberg
-                        </button>
-                    </h5>
+                <div class="card-header bg-warning text-dark tt-card-heading">
+                    <h5 class="mb-0"><i class="fas fa-cog"></i> Instellingen & Verbinding</h5>
+                    <button class="btn btn-sm btn-outline-dark" type="button" data-toggle="collapse" data-target="#settingsCollapse" aria-controls="settingsCollapse" aria-expanded="false">
+                        <i class="fas fa-chevron-down"></i> Toon/Verberg
+                    </button>
                 </div>
                 <div class="collapse" id="settingsCollapse">
                     <div class="card-body">
@@ -407,7 +406,7 @@ if ($usersResponse['success']) {
         
         <!-- Gebruikers beheer -->
         <div class="col-lg-12">
-            <div class="card mb-4">
+            <div class="card mb-3">
                 <div class="card-header bg-primary text-white">
                     <h4 class="mb-0"><i class="fas fa-users"></i> Gebruikers Beheer</h4>
                 </div>
@@ -497,7 +496,7 @@ if ($usersResponse['success']) {
                                     <?php endif; ?>
                                 </div>
                             <?php else: ?>
-                                <div class="table-responsive">
+                                <div class="table-responsive" tabindex="0" role="region" aria-label="Gebruikers">
                                     <table class="table table-hover">
                                         <thead class="thead-dark">
                                             <tr>
