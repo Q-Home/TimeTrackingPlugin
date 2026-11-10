@@ -1,4 +1,6 @@
-# HR-tijdregistratie — versie 1.1.0
+# HR-tijdregistratie — versie 1.2.3
+
+**Nieuw in 1.2.3:** standaard acht netto-uren op maandag t/m vrijdag voor personen zonder persoonlijk rooster, en gedateerde afronding van START/STOP. Zie [afronding en standaard werkregime](ROUNDING_AND_DEFAULT_REGIME.md).
 
 **Toegangsafspraak vanaf 1.2.2:** medewerkers worden automatisch aangemaakt voor Loxone-registraties en mogen niet aanmelden op Qtime. Alleen HR en bevoegde beheerders hebben webtoegang. Oudere passages hieronder over medewerkerinzage, aanvragen en eigen wachtwoord zijn daarmee vervallen. Zie [automatische medewerkers](AUTOMATIC_EMPLOYEES.md).
 
@@ -16,7 +18,7 @@ Een urensaldo is het verschil tussen netto-registraties en de norm. Het is geen 
 
 ## Roosters, kalender en regels
 
-Maak een herbruikbaar rooster met netto-minuten per weekdag; begin/eindtijden zijn optioneel. Een rooster is een onveranderlijke versie: maak voor gewijzigde uren een nieuw rooster en wijs dat met ingangsdatum toe. Eerdere toewijzingen blijven zichtbaar. Bij een ontbrekend rooster verschijnt **Geen rooster ingesteld**; er wordt geen achturennorm verondersteld.
+Maak een herbruikbaar rooster met netto-minuten per weekdag; begin/eindtijden zijn optioneel. Een rooster is een onveranderlijke versie: maak voor gewijzigde uren een nieuw rooster en wijs dat met ingangsdatum toe. Eerdere toewijzingen blijven zichtbaar. Vanaf de activeringsdatum van 1.2.3 geldt zonder persoonlijk rooster standaard acht netto-uren per werkdag (maandag t/m vrijdag). Vóór die datum, of met de standaard expliciet uitgeschakeld, verschijnt **Geen rooster ingesteld**.
 
 Kalenderregels kunnen voor iedereen, een afdeling of één medewerker gelden: feestdag, bedrijfssluiting of afwezigheid. Kies norm behouden, op nul zetten of vervangende netto-minuten. Specifieke medewerkerregels worden na algemene regels toegepast; bij meerdere regels met dezelfde specificiteit beslist de laatst toegevoegde regel. Er worden geen afwezigheidsaftrekken gestapeld. Een foutieve kalenderregel kan met auditreden worden verwijderd, tenzij deze goedgekeurde of afgesloten uren raakt.
 
@@ -117,7 +119,7 @@ Regressies: normale werkdagen, meerdere pauzes, deeltijds/roosterwijziging, kale
 - Gericht op kleine Qbox-installaties: HR-status/audit/idempotentie staan bewust in één atomair document voor standalone MongoDB. Vanaf 12 MB status weigert de API verdere mutaties met een expliciete fout; audit wordt nooit stilzwijgend afgekapt. Er is nog geen archiefworkflow. Plan bij langdurig/intensief gebruik een volgende versie met gescheiden auditopslag en transacties. Gelijktijdige schrijvers kunnen 409 krijgen en moeten opnieuw laden.
 - Historische aliases vereisen volledige bronlezing. Grote aantallen medewerkers/events of jaaroverzichten hebben nog geen prestatiedoelstelling of belastingtest; een aanvraag is beperkt tot 367 dagen. Test omvang en responstijden op de herstelkopie.
 - Meldingen zijn signalen/tegels in de applicatie en de werklijst. Er wordt geen e-mail, sms of push verstuurd. De rollenmatrix is vast; toewijzing gebeurt in technisch gebruikersbeheer, geen configureerbare rechtenbouwer.
-- Roosters kennen één verwacht nettototaal en optionele begin/eindtijd per weekdag. Geen terugkerende ploegencyclus, verlofaanvraagadministratie, betaald-pauzemodel, CAO-toeslagen, afronding of loonberekening.
+- Roosters kennen één verwacht nettototaal en optionele begin/eindtijd per weekdag. Geen terugkerende ploegencyclus, verlofaanvraagadministratie, betaald-pauzemodel, CAO-toeslagen of loonberekening. Afronding van de buitenste START/STOP-grenzen is vanaf 1.2.3 instelbaar.
 - Verlopen peildagen worden per kalenderdag gesplitst. Ontbrekende stops blijven voorlopige uren, ook wanneer een sessie zeer lang openstaat; er wordt geen verborgen afkap toegepast.
 - Historische events zonder eigen provenance worden als oorspronkelijke fysieke bronregistratie weergegeven; het systeem kan de echtheid van vroegere imports niet achteraf bewijzen. Automatische stops en nieuwe correcties hebben wel expliciete provenance.
 - Tests gebruiken een in-memory MongoDB-substituut en een lokale browser. Echte standalone MongoDB, brokerherlevering, installatierechten en Docker-imagebouw moeten vóór productie op een geïsoleerde Qbox worden gevalideerd. Er is geen productieverbinding gebruikt.

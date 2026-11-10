@@ -70,7 +70,7 @@ class AccountPasswordTests(unittest.TestCase):
         self.assertEqual(result.matched_count,0)
         self.assertEqual(self.db.users.find_one({'_id':ObjectId(self.ids['user'])})['password'],'other-current-hash')
     def test_new_main_navigation_and_account_form_are_available(self):
-        self.assertIn('account.html',(ROOT/'bin/Webapp/js/hr.js').read_text())
+        self.assertIn('account.html',(ROOT/'bin/Webapp/js/hr.js').read_text(encoding='utf-8'))
         html=(ROOT/'bin/Webapp/account.html').read_text()
         self.assertIn('autocomplete="current-password"',html);self.assertIn('repeat_password',html)
 

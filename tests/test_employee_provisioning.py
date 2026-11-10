@@ -124,7 +124,7 @@ class ProvisioningTests(unittest.TestCase):
         self.hr.setting('identity',{'revision':state['revision'],'identity_key':'external:AMBIGUOUS','employee_id':self.ids['user'],'reason':'Synthetic reviewed identity'},'synthetic.hr','reviewed-identity-001')
         self.assertEqual(self.hr.resolve(record),self.ids['user'])
     def test_approval_guard_blocks_silent_identity_link_but_preserves_badge(self):
-        self.db.hr_state.insert_one({**self.hr.state(),'revision':1,'approvals':[{'id':'approval','employee_id':self.ids['user'],
+        self.db.hr_state.replace_one({'_id':'hr'},{**self.hr.state(),'revision':1,'approvals':[{'id':'approval','employee_id':self.ids['user'],
             'start':'2026-01-01','end':'2026-01-02','status':'closed'}]})
         response=self.badge(username='synthetic.user')
         self.assertEqual(response.status_code,201,response.json)
