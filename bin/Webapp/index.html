@@ -17,7 +17,7 @@
 
 <body class="tt-login-body">
     <main class="tt-login-shell">
-        <div class="tt-login-intro">
+        <section class="tt-login-card" aria-labelledby="loginTitle">
             <div class="tt-shell-brand">
                 <span class="tt-brand-mark" aria-hidden="true"></span>
                 <div class="tt-shell-brand__text">
@@ -25,18 +25,8 @@
                     <span class="tt-shell-brand__title">TimeTracking</span>
                 </div>
             </div>
-            <div class="tt-login-intro__copy">
-                <p class="tt-kicker">Tijdsregistratie</p>
-                <h2>Je werkdag in één overzicht</h2>
-                <p>Bekijk je geregistreerde uren, pauzes en badge-scans.</p>
-            </div>
-        </div>
-        <section class="tt-login-card" aria-labelledby="loginTitle">
-            <div class="tt-login-header">
-                <h1 id="loginTitle">Welkom terug</h1>
-                <p>Qtime is toegankelijk voor HR en bevoegde beheerders. Medewerkers worden via Loxone geregistreerd.</p>
-            </div>
 
+            <h1 id="loginTitle">Inloggen</h1>
             <form id="loginForm" class="tt-login-form">
                 <div class="form-group">
                     <label for="username">Gebruikersnaam of e-mail</label>
@@ -49,6 +39,8 @@
                 <button type="submit" class="tt-login-button">Inloggen</button>
                 <div id="loginError" class="login-error" role="alert"></div>
             </form>
+
+            <p class="tt-login-note">Voor HR en bevoegde beheerders. Medewerkers registreren hun uren via Loxone.</p>
         </section>
     </main>
 
