@@ -32,6 +32,8 @@ files onto an older backend: constructor signatures and route registration diffe
 
 ## Automatic STOP: existing policy, not a new approval
 
+**Update 1.2.1:** de hieronder beschreven 11:59-planning is historisch. Het pakket draait nu om 00:05 met `--completed-days`, HR-overlays en expliciete logtellers. De acht verstreken uren blijven de standaardregel. Zie [eigen wachtwoord en nachtelijke afsluiting](ACCOUNT_AND_NIGHT_CLOSE.md).
+
 `cron/crontab` preserves the Qbox schedule: daily at 11:59 in the host timezone,
 running as `loxberry`. It executes the backend container's automatic STOP script.
 The user needs working Docker access; the destination log directory must exist.

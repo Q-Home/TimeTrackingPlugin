@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import os
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -52,7 +52,7 @@ def to_belgian(value: datetime) -> datetime:
     return value.astimezone(BELGIUM_TZ)
 
 
-def day_bounds_utc(target_day: datetime) -> tuple[datetime, datetime]:
+def day_bounds_utc(target_day: datetime, timezone_name='Europe/Brussels') -> tuple[datetime, datetime]:
     local_start = datetime(
         target_day.year,
         target_day.month,
@@ -60,7 +60,7 @@ def day_bounds_utc(target_day: datetime) -> tuple[datetime, datetime]:
         0,
         0,
         0,
-        tzinfo=BELGIUM_TZ,
+        tzinfo=ZoneInfo(timezone_name),
     )
     local_end = local_start + timedelta(days=1)
     return to_utc_naive(local_start), to_utc_naive(local_end)
@@ -162,8 +162,9 @@ def build_auto_stop(start_log: dict, stop_timestamp: datetime, run_time: datetim
     }
 
 
-def run(collection, target_day: datetime, work_hours: int, lookback_days: int, dry_run: bool, hr_service=None) -> int:
-    run_time = datetime.utcnow()
+def run(collection, target_day: datetime, work_hours: int, lookback_days: int, dry_run: bool, hr_service=None,
+        completed_days=False, timezone_name='Europe/Brussels', run_time=None, diagnostics=None) -> int:
+    run_time = to_utc_naive(run_time or datetime.now(timezone.utc))
     inserted = 0
 
     for day_offset in range(max(lookback_days, 1) - 1, -1, -1):
@@ -174,19 +175,49 @@ def run(collection, target_day: datetime, work_hours: int, lookback_days: int, d
             run_time=run_time,
             dry_run=dry_run,
             hr_service=hr_service,
+            completed_days=completed_days,
+            timezone_name=timezone_name,
+            diagnostics=diagnostics,
         )
 
     return inserted
 
 
-def run_day(collection, target_day: datetime, work_hours: int, run_time: datetime, dry_run: bool, hr_service=None) -> int:
-    start_utc, end_utc = day_bounds_utc(target_day)
+def nightly_candidates(hr_service, target_day, run_time, timezone_name, diagnostics=None):
+    """Use effective chronological events; a real overnight STOP wins over auto-close."""
+    from app.hr.engine import instant
+    candidates=[]
+    for employee in hr_service.employees():
+        opened=None
+        try:events=sorted(hr_service.events(employee['id']),key=lambda e:instant(e['timestamp']))
+        except (ValueError,TypeError,KeyError):
+            if diagnostics is not None:diagnostics['invalid_source']=diagnostics.get('invalid_source',0)+1
+            continue
+        for event in events:
+            if instant(event['timestamp'])>instant(run_time):continue
+            action=normalize_action(event.get('action'))
+            if action=='START' and opened is None:opened=event
+            elif action=='STOP':opened=None
+        if opened and instant(opened['timestamp']).astimezone(ZoneInfo(timezone_name)).date()==target_day.date():
+            value={**opened,'username':employee['username'],'employee_id':employee['id'],
+                   'timestamp':to_utc_naive(instant(opened['timestamp']))}
+            candidates.append((('employee_id',employee['id']),value))
+    return candidates
+
+
+def run_day(collection, target_day: datetime, work_hours: int, run_time: datetime, dry_run: bool, hr_service=None,
+            completed_days=False, timezone_name='Europe/Brussels', diagnostics=None) -> int:
+    start_utc, end_utc = day_bounds_utc(target_day,timezone_name)
     logs = list(
         collection.find({"timestamp": {"$gte": start_utc, "$lt": end_utc}}).sort("timestamp", 1)
     )
 
     inserted = 0
-    for _key, start_log in find_open_sessions(logs):
+    candidates=nightly_candidates(hr_service,target_day,run_time,timezone_name,diagnostics) if completed_days and hr_service else find_open_sessions(logs)
+    def count(key):
+        if diagnostics is not None:diagnostics[key]=diagnostics.get(key,0)+1
+    for _key, start_log in candidates:
+        count('open_sessions')
         stop_timestamp = start_log["timestamp"] + timedelta(hours=work_hours)
         mode = 'legacy_elapsed'
         if hr_service:
@@ -206,6 +237,7 @@ def run_day(collection, target_day: datetime, work_hours: int, run_time: datetim
                 if any(normalize_action(e.get('action')) == 'STOP' for e in later):
                     continue
             if mode == 'signal':
+                count('signalled')
                 print('Open sessie gesignaleerd; geen automatische wijziging.')
                 continue
             if mode != 'legacy_elapsed':
@@ -219,18 +251,21 @@ def run_day(collection, target_day: datetime, work_hours: int, run_time: datetim
                         schedule = next(s for s in state['schedules'] if s['id']==assignment['schedule_id'])
                         clock = schedule['days'][target_day.weekday()].get('end') or clock
                     hour, minute = map(int, clock.split(':'))
-                    local = to_belgian(start_log['timestamp']).replace(hour=hour, minute=minute, second=0, microsecond=0)
+                    local = start_log['timestamp'].replace(tzinfo=timezone.utc).astimezone(ZoneInfo(timezone_name)).replace(hour=hour, minute=minute, second=0, microsecond=0)
                     if to_utc_naive(local) <= start_log['timestamp']: local += timedelta(days=1)
                     stop_timestamp = to_utc_naive(local)
                 else:
                     stop_timestamp = start_log['timestamp'] + timedelta(hours=rules['auto_stop_hours'])
             if mode == 'propose':
                 hr_service.automatic_proposal(start_log, stop_timestamp, dry_run)
+                count('proposed')
                 continue
         if stop_timestamp > run_time:
+            count('future_end')
             continue
 
         if auto_stop_exists(collection, start_log, stop_timestamp):
+            count('already_present')
             continue
 
         auto_stop = build_auto_stop(start_log, stop_timestamp, run_time)
@@ -249,8 +284,11 @@ def run_day(collection, target_day: datetime, work_hours: int, run_time: datetim
 
         token = None
         if hr_service:
+            from app.hr.service import HRError
             try: token = hr_service.reserve_event(auto_stop)
-            except Exception:
+            except HRError as exc:
+                if exc.status!=409:raise
+                count('blocked_period')
                 print('Automatische STOP niet toegepast: periodecontrole vereist.')
                 continue
         try:
@@ -268,6 +306,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--work-hours", type=int, default=DEFAULT_WORK_HOURS)
     parser.add_argument("--lookback-days", type=int, default=DEFAULT_LOOKBACK_DAYS)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument('--completed-days',action='store_true',help='Nightly mode: inspect yesterday and preceding completed company-calendar days, using HR corrections.')
     return parser
 
 
@@ -277,23 +316,33 @@ def main() -> int:
     load_env_file(script_dir.parent.parent / ".env")
 
     args = build_parser().parse_args()
-    target_day = (
-        datetime.strptime(args.date, "%Y-%m-%d").replace(tzinfo=BELGIUM_TZ)
-        if args.date
-        else datetime.now(BELGIUM_TZ)
-    )
-
     mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/timetracking")
-    db_name = os.getenv("MONGO_DB_NAME", "timetracking")
-    client = MongoClient(mongo_uri)
-    collection = client[db_name]["badge_logs"]
+    client = MongoClient(mongo_uri,serverSelectionTimeoutMS=5000)
+    db = client[os.environ['MONGO_DB_NAME']] if os.getenv('MONGO_DB_NAME') else client.get_default_database(default='timetracking')
+    collection = db['badge_logs']
 
     from app.hr.service import HRService
+    from app.hr.engine import policy
+    hr_service=HRService(db)
+    run_time=datetime.now(timezone.utc)
+    zone=policy(hr_service.state(),run_time.date())['timezone']
+    today=run_time.astimezone(ZoneInfo(zone))
+    target_day=datetime.strptime(args.date,'%Y-%m-%d').replace(tzinfo=ZoneInfo(zone)) if args.date else today-timedelta(days=1) if args.completed_days else today
+    if args.completed_days and target_day.date()>=today.date():raise ValueError('Nightly mode only accepts completed company-calendar days')
+    diagnostics={}
+    print(f'{run_time.isoformat()} Auto-close started: local={today.isoformat()} target={target_day.date()} lookback={args.lookback_days} timezone={zone} completed_days={args.completed_days}',flush=True)
     inserted = run(collection, target_day, args.work_hours, args.lookback_days, args.dry_run,
-                   hr_service=HRService(client[db_name]))
+                   hr_service=hr_service,completed_days=args.completed_days,timezone_name=zone,
+                   run_time=run_time,diagnostics=diagnostics)
+    print(f'{datetime.now(timezone.utc).isoformat()} Auto-close finished: inserted={inserted} counters={diagnostics}',flush=True)
     print(f"Automatic STOP badges {'would be inserted' if args.dry_run else 'inserted'}: {inserted}")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except Exception as exc:
+        # No connection URI, credentials or source payload in cron output.
+        print(f'{datetime.now(timezone.utc).isoformat()} Auto-close FAILED ({type(exc).__name__}); inspect database availability and period controls.',file=sys.stderr)
+        raise SystemExit(1)

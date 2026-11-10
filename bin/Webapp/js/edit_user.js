@@ -291,8 +291,8 @@ async function checkEmailUnique(emailToCheck) {
 async function handlePasswordFormSubmit(event) {
   event.preventDefault();
 
-  const password = (document.getElementById("pass")?.value || "").trim();
-  const repeatPassword = (document.getElementById("rpass")?.value || "").trim();
+  const password = document.getElementById("pass")?.value || "";
+  const repeatPassword = document.getElementById("rpass")?.value || "";
 
   if (!password || !repeatPassword) {
     notify("Wachtwoordvelden mogen niet leeg zijn.", "warning");
@@ -313,7 +313,7 @@ async function handlePasswordFormSubmit(event) {
     const response = await fetch(`${apiUrl}/users/${encodeURIComponent(userId)}/password`, {
       method: "PUT",
       headers: authHeaders(true),
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ password, current_password:document.getElementById('current-password')?.value||'' }),
     });
 
     if (handleAuthError(response)) return;
@@ -328,6 +328,7 @@ async function handlePasswordFormSubmit(event) {
 
     setValue("pass", "");
     setValue("rpass", "");
+    setValue('current-password','');
   } catch (error) {
     console.error("Error updating password:", error);
     notify(error.message || "Er is een fout opgetreden bij het wijzigen van het wachtwoord.", "error");

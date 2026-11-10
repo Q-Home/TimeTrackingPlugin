@@ -53,6 +53,10 @@ class UserRepository:
     def delete_by_username(self, username: str):
         return self.mongo.db["users"].delete_one({"username": username})
 
+    def update_password_if_unchanged(self, user_id, previous_hash, update_fields):
+        return self.mongo.db['users'].update_one(
+            {'_id':ObjectId(user_id),'password':previous_hash},{'$set':update_fields})
+
     def username_exists(self, username: str):
         return self.mongo.db["users"].find_one({"username": username}) is not None
 

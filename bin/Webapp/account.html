@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mijn wachtwoord</title><link rel="icon" href="images/timetracking-favicon.svg"><link rel="stylesheet" href="css/hr.css"><script defer src="js/branding.js"></script><script defer src="js/account.js"></script></head>
+<body><aside class="rail"><a class="brand" href="hr.html"><img src="images/logo.png" alt="" data-brand-logo><span data-brand-name>Q-Home</span></a><p class="rail-caption">MIJN ACCOUNT</p><nav><a href="hr.html">Tijdregistratie</a><a class="active" href="account.html">Mijn wachtwoord</a></nav><div class="rail-bottom"><span id="identity"></span><button id="logout" class="text-button">Afmelden</button></div></aside>
+<main><header class="page-header"><div><p class="eyebrow">MIJN ACCOUNT</p><h1>Mijn wachtwoord</h1><p>Wijzig het wachtwoord waarmee je bij de tijdregistratie aanmeldt.</p></div></header><div id="feedback" role="status" aria-live="polite"></div>
+<form id="password-form" class="panel" style="max-width:620px"><h2>Wachtwoord wijzigen</h2><p id="account-name" class="muted">Je account wordt gecontroleerd…</p><div class="form-grid">
+<label class="wide">Huidig wachtwoord<input type="password" name="current_password" autocomplete="current-password" required></label>
+<label class="wide">Nieuw wachtwoord<input type="password" name="password" autocomplete="new-password" minlength="6" required><small>Minimaal 6 tekens. Gebruik een lang, uniek wachtwoord.</small></label>
+<label class="wide">Herhaal nieuw wachtwoord<input type="password" name="repeat_password" autocomplete="new-password" minlength="6" required></label>
+</div><button id="save-password" type="submit" style="margin-top:20px" disabled>Wachtwoord opslaan</button></form>
+<footer>Copyright 2026 | <a href="https://q-home.be">Q-Home</a></footer></main></body></html>
