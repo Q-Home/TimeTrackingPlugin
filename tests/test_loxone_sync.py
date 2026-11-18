@@ -204,6 +204,17 @@ class AuthorizationTests(unittest.TestCase):
         service=self.app.extensions['loxone_sync']
         response=self.client.post('/api/v1/loxone-sync/run',headers={'Authorization':'Bearer '+self.tokens['admin']})
         self.assertEqual(response.status_code,202);self.assertFalse(service.bridge.calls)
+    def test_response_stage_and_certificate_warning_are_both_reported(self):
+        service=self.app.extensions['loxone_sync']
+        service.record_transport(SERVER,['certificate_hostname_mismatch'])
+        for code in ('response_api_info','response_field_names','response_user_list'):
+            service.bridge.error=code
+            response=self.client.post('/api/v1/loxone-sync/test',json={'slot':'1'},
+                headers={'Authorization':'Bearer '+self.tokens['admin']})
+            self.assertEqual(response.status_code,503)
+            self.assertEqual(response.json['code'],code)
+            self.assertEqual(response.json['transport_warnings'][0]['code'],'certificate_hostname_mismatch')
+            self.assertNotIn('SYNTHETIC_PRIVATE',json.dumps(response.json))
 
 
 if __name__=='__main__':unittest.main()
