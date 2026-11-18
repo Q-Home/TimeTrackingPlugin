@@ -148,3 +148,5 @@
 }
 
 @media print{.rail,.filters,.header-actions,.tabs,button{display:none!important}main{margin:0;padding:0}.panel{box-shadow:none}.stats{grid-template-columns:repeat(5,1fr)}body{background:white}}
+
+.day-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:14px 0}.day-actions small{flex:1 1 260px;color:var(--muted,#607570)}

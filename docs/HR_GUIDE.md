@@ -1,4 +1,6 @@
-# HR-tijdregistratie — versie 1.2.3
+# HR-tijdregistratie — versie 1.2.6
+
+**Nieuw in 1.2.6:** rechtstreeks per dag een registratie toevoegen, ook op lege dagen. De datum staat klaar; de werkelijke tijd en reden zijn verplicht. Zie [lege dagen aanvullen](CORRECT_EMPTY_DAYS.md).
 
 **Nieuw in 1.2.3:** standaard acht netto-uren op maandag t/m vrijdag voor personen zonder persoonlijk rooster, en gedateerde afronding van START/STOP. Zie [afronding en standaard werkregime](ROUNDING_AND_DEFAULT_REGIME.md).
 
