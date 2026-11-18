@@ -9,7 +9,7 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 from app.hr.engine import calculate, instant, iso, policy
 from app.hr.service import HRError, clean
-from .bridge import Bridge, SyncError, MESSAGES
+from .bridge import Bridge, SyncError, MESSAGES, TRANSPORT_WARNINGS
 
 FIELDS=tuple('customField'+str(i) for i in range(1,6))
 METRICS={'none','today','week','month','balance','status','updated'}
@@ -25,7 +25,23 @@ def duration(seconds,signed=False):
 
 class SyncService:
     def __init__(self, db, hr, bridge=None):
-        self.db,self.hr,self.bridge=db,hr,bridge or Bridge()
+        self.db,self.hr=db,hr
+        self.bridge=bridge or Bridge(warning_handler=self.record_transport)
+
+    def record_transport(self,server,warnings):
+        if not isinstance(server,dict) or not re.fullmatch(r'[0-9]{1,4}',str(server.get('slot',''))):return
+        codes=[w for w in warnings if isinstance(w,str) and w in TRANSPORT_WARNINGS]
+        try:
+            self.db.loxone_sync_meta.update_one({'_id':'transport:'+str(server['slot'])},
+                {'$set':{'checked_at':clock(),'warnings':codes}},upsert=True)
+        except Exception:
+            pass  # A diagnostic write must not turn a successful Miniserver call into a failure.
+
+    def transport_status(self,server):
+        if not server:return {'warnings':[]}
+        saved=self.db.loxone_sync_meta.find_one({'_id':'transport:'+str(server['slot'])}) or {}
+        return {'checked_at':saved.get('checked_at'),'warnings':[{'code':w,'message':TRANSPORT_WARNINGS[w]}
+            for w in saved.get('warnings',[]) if isinstance(w,str) and w in TRANSPORT_WARNINGS]}
 
     def config(self):
         return self.db.loxone_sync_config.find_one({'_id':'settings'}) or {
@@ -168,7 +184,8 @@ class SyncService:
                     except SyncError as exc:row['link_status']=MESSAGES[exc.code];row['last_error']=MESSAGES[exc.code]
             rows.append(row)
         return {'config':config,'rows':rows,'dry_run':True,'pending':self.db.loxone_sync_meta.find_one({'_id':'queue'}) or {},
-                'run':self.db.loxone_sync_meta.find_one({'_id':'run'}) or {}}
+                'run':self.db.loxone_sync_meta.find_one({'_id':'run'}) or {},
+                'transport':self.transport_status(config['server'])}
 
     @staticmethod
     def _object_id(uid):

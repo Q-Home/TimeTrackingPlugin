@@ -55,4 +55,64 @@ $bad=$env;$bad['send']=function($slot,$command) {return ['version'=>'16.0.1.0','
 fails('unsupported',function() use($bad,$server){sync_dispatch(['operation'=>'probe','server'=>$server],$bad);});
 $bad=$env;$bad['send']=function($slot,$command) use($uuid) {if ($command==='/jdev/cfg/apiKey')return ['version'=>'17.0.1.0','mac'=>'AA:BB:CC:DD:EE:FF'];sync_fail('response');};
 fails('user_missing',function() use($bad,$server,$uuid){sync_dispatch(['operation'=>'user','server'=>$server,'uuid'=>$uuid],$bad);});
+// Test the actual SDK boundary, including the reported local-IP TLS failure.
+$success='{"LL":{"Code":"200","value":{"safe":true}}}';
+$warnings=[];$calls=[];
+$sdk=function($slot,$command,$options) use(&$calls,$success) {$calls[]=$options;return [$success,['code'=>200]];};
+check(sync_sdk_send('1','/jdev/cfg/apiKey',$sdk,$warnings)['safe']===true);
+check(count($calls)===1 && $calls[0]['ssl_verify_hostname']===1 && !$warnings);
+foreach ([
+    'SSL: no alternative certificate subject name matches target host name 192.0.2.10'=>'certificate_hostname_mismatch',
+    'SSL certificate problem: self-signed certificate'=>'certificate_untrusted',
+    'SSL certificate problem: unable to get local issuer certificate'=>'certificate_untrusted',
+    'SSL certificate problem: certificate has expired'=>'certificate_expired',
+    'SSL certificate problem: certificate is not yet valid'=>'certificate_expired',
+] as $error=>$warning) {
+    $warnings=[];$calls=[];
+    $sdk=function($slot,$command,$options) use(&$calls,$success,$error) {
+        $calls[]=$options;
+        return $options['ssl_verify_mode']?[null,['code'=>0,'status'=>$error]]:[$success,['code'=>200]];
+    };
+    check(sync_sdk_send('1','/jdev/cfg/apiKey',$sdk,$warnings)['safe']===true);
+    check(count($calls)===2 && $calls[0]['ssl_verify_mode']===1 && $calls[1]['ssl_verify_mode']===0 && $calls[1]['ssl_verify_hostname']===0);
+    check($warnings===[$warning]);
+    sync_sdk_send('1','/jdev/sps/getcustomuserfields',$sdk,$warnings);
+    check(count($calls)===3 && $calls[2]['ssl_verify_mode']===0); // cached only inside this request
+    check(strpos(json_encode($warnings),'192.0.2.10')===false);
+}
+foreach ([0=>'Connection timed out',401=>'Unauthorized',403=>'Forbidden',500=>'Server error'] as $code=>$error) {
+    $warnings=[];$calls=[];
+    $sdk=function($slot,$command,$options) use(&$calls,$code,$error) {$calls[]=$options;return [null,['code'=>$code,'status'=>$error]];};
+    fails($code===401?'authentication':($code===403?'permissions':'network'),function() use($sdk,&$warnings){sync_sdk_send('1','/jdev/sps/addoredituser/payload',$sdk,$warnings);});
+    check(count($calls)===1 && !$warnings);
+}
+foreach ([401=>'authentication',403=>'permissions',0=>'network'] as $code=>$expected) {
+    $warnings=[];$calls=[];
+    $sdk=function($slot,$command,$options) use(&$calls,$code) {
+        $calls[]=$options;
+        return $options['ssl_verify_mode']?[null,['code'=>0,'status'=>'SSL certificate problem: self-signed certificate']]:[null,['code'=>$code,'status'=>'Synthetic failure']];
+    };
+    fails($expected,function() use($sdk,&$warnings){sync_sdk_send('1','/jdev/cfg/apiKey',$sdk,$warnings);});
+    check(count($calls)===2 && $warnings===['certificate_untrusted']);
+}
+check(sync_certificate_warning($success,['code'=>200,'status'=>'SSL certificate problem'])===null);
+check(sync_certificate_warning(null,['code'=>500,'status'=>'SSL certificate problem'])===null);
+// A new RPC verifies again and clears warnings after a certificate is repaired.
+$warnings=[];$calls=[];
+$sdk=function($slot,$command,$options) use(&$calls,$success) {$calls[]=$options;return [$success,['code'=>200]];};
+sync_sdk_send('1','/jdev/cfg/apiKey',$sdk,$warnings);
+check($calls[0]['ssl_verify_mode']===1 && !$warnings);
+// Full probe and verified partial write still work via certificate compatibility.
+$warnings=[];$sdkCalls=[];
+$sdk=function($slot,$command,$options) use(&$sdkCalls,$env) {
+    $sdkCalls[]=$options;
+    if ($options['ssl_verify_mode']) return [null,['code'=>0,'status'=>'SSL: no alternative certificate subject name matches target host name 192.0.2.10']];
+    return [json_encode(['LL'=>['Code'=>'200','value'=>$env['send']($slot,$command)]]),['code'=>200]];
+};
+$compatible=$env;$compatible['send']=function($slot,$command) use($sdk,&$warnings){return sync_sdk_send($slot,$command,$sdk,$warnings);};
+check(sync_dispatch(['operation'=>'probe','server'=>$server],$compatible)['server']['serial']===$serial);
+check(count($sdkCalls)===4 && count($warnings)===1);
+$result=sync_dispatch(['operation'=>'patch','server'=>$server,'uuid'=>$uuid,'fields'=>['customField1'=>'8u 00m']],$compatible);
+check($result['fields']['customField1']==='8u 00m');
+foreach (['password','userRights','usergroups','nfcTags','keycodes','validFrom','validUntil','customField2','name','uuid'] as $key) check($user[$key]===$original[$key]);
 echo 'Host adapter: '.$count." assertions passed; no network used.\n";

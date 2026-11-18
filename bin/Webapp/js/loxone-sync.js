@@ -8,6 +8,9 @@
   const state={config:null,probe:null,rows:[],users:[],employee:null};
   const when=v=>v?new Date(v).toLocaleString('nl-BE'):'Nog niet';
   function notice(message,error=false){$('feedback').innerHTML=`<div class="notice ${error?'error':''}">${esc(message)}</div>`;}
+  function transportWarnings(warnings=[]){
+    $('connection-warnings').innerHTML=warnings.map(w=>`<div class="notice warning" role="status"><strong>Certificaatwaarschuwing</strong><br>${esc(w.message)}</div>`).join('');
+  }
   async function api(path,options={}){
     const response=await fetch('/api/v1/loxone-sync'+path,{cache:'no-store',...options,headers:{Authorization:'Bearer '+(localStorage.getItem('access_token')||''),...options.headers}});
     if(response.status===401){location.href='index.html';throw Error('Meld opnieuw aan.');}
@@ -24,6 +27,7 @@
   }
   function renderRows(data){
     state.rows=data.rows;
+    transportWarnings(data.transport?.warnings||[]);
     $('queue').innerHTML=`<p class="muted">Laatste taak: ${esc(when(data.run.at))}${data.run.at?` · ${data.run.success||0} gecontroleerd · ${data.run.writes||0} bijgewerkt · ${data.run.failed||0} fouten`:''}. ${data.pending.sequence> (data.run.sequence||0)?'Een nieuwe ronde staat ingepland.':''}</p>`;
     $('employees').innerHTML=state.rows.length?state.rows.map(row=>`<article class="sync-person"><div class="section-head"><div><h3>${esc(row.employee.name)}</h3><span class="muted">Tijdregistratie: ${esc(row.employee.username)}</span></div><button class="secondary" data-link="${esc(row.employee.id)}">${row.binding?'Koppeling bekijken / vervangen':'Gebruiker koppelen'}</button></div>
       <div class="sync-meta"><span class="badge ${row.binding?'neutral':'warning'}">${esc(row.link_status)}</span><span>Loxone: ${esc(row.remote?.name||row.binding?.name||'Niet gekoppeld')}</span></div>${row.binding?`<code>UUID ${esc(row.binding.uuid)} · Miniserver ${esc(row.binding.server.serial)}</code>`:''}
@@ -39,6 +43,7 @@
   async function testConnection(){
     if(!$('server').value)throw Error('Selecteer een Miniserver.');
     state.probe=await post('/test',{slot:$('server').value});
+    transportWarnings(state.probe.transport_warnings||[]);
     $('probe').innerHTML=`<div class="note">Verbinding geslaagd · LoxBerry ${esc(state.probe.loxberry_version)} · Miniserver ${esc(state.probe.miniserver_version)} · Identiteit ${esc(state.probe.server.serial)} · ${state.probe.user_count} zichtbare gebruikers.</div>`;
     renderMapping();notice('Verbinding en leesrechten gecontroleerd. Schrijfrechten worden pas bij een expliciet ingeschakelde update gecontroleerd.');
   }
@@ -60,7 +65,7 @@
     $('diagnostics-tab').onclick=()=>{$('settings').classList.add('hidden');$('diagnostics').classList.remove('hidden');};
     $('refresh').onclick=()=>busy($('refresh'),reload);
     $('test').onclick=()=>busy($('test'),testConnection);
-    $('server').onchange=()=>{state.probe=null;$('probe').textContent='Test de nieuwe selectie vóór opslaan.';};
+    $('server').onchange=()=>{state.probe=null;transportWarnings();$('probe').textContent='Test de nieuwe selectie vóór opslaan.';};
     $('preview').onclick=()=>busy($('preview'),async()=>{renderRows(await post('/preview'));notice('Dry-run afgerond: geen velden geschreven. De preview gebruikt de opgeslagen veldmapping.');});
     $('run').onclick=()=>busy($('run'),async()=>{const result=await post('/run');notice(result.message);renderRows(await api('/diagnostics'));});
     $('config-form').onsubmit=event=>{event.preventDefault();busy(event.submitter,async()=>{
