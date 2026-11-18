@@ -32,6 +32,69 @@ function sync_unwrap($body, $http) {
     }
     return $value;
 }
+function sync_api_info($value) {
+    // apiKey can contain a single-quoted object literal instead of JSON. Convert
+    // string/key tokens only, then use JSON parsing; never execute server text.
+    if (is_string($value) && strlen($value)<=20000) {
+        $value=preg_replace_callback(<<<'REGEX'
+~"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|(?<=[{,])\s*[A-Za-z_][A-Za-z0-9_]*\s*(?=:)~s
+REGEX
+        ,function($match) {
+            $token=$match[0];
+            if ($token[0]==='"') return $token;
+            if ($token[0]!=="'") return json_encode(trim($token));
+            $inner=substr($token,1,-1);$json='"';
+            for ($i=0;$i<strlen($inner);$i++) {
+                $char=$inner[$i];
+                if ($char==='\\') {
+                    if (++$i>=strlen($inner)) sync_fail('response_api_info');
+                    $escape=$inner[$i];
+                    if ($escape==="'") $json.="'";
+                    elseif (strpos('"\\/bfnrtu',$escape)!==false) $json.='\\'.$escape;
+                    else sync_fail('response_api_info');
+                } else $json.=$char==='"'?'\\"':$char;
+            }
+            $decoded=json_decode($json.'"',true);
+            if (json_last_error()!==JSON_ERROR_NONE) sync_fail('response_api_info');
+            return json_encode($decoded);
+        },$value);
+        $value=json_decode($value,true,16);
+        if (json_last_error()!==JSON_ERROR_NONE) sync_fail('response_api_info');
+    }
+    if (!is_array($value) || !is_string($value['version'] ?? null)) sync_fail('response_api_info');
+    $serials=[];
+    foreach (['mac','snr'] as $field) {
+        if (!array_key_exists($field,$value)) continue;
+        $serial=$value[$field];
+        if (!is_string($serial) || !preg_match('/^(?:[0-9a-f]{12}|(?:[0-9a-f]{2}:){5}[0-9a-f]{2}|(?:[0-9a-f]{2}-){5}[0-9a-f]{2})$/i',$serial)) sync_fail('response_api_info');
+        $serials[]=strtoupper(str_replace([':', '-'],'',$serial));
+    }
+    if (!$serials || count(array_unique($serials))!==1) sync_fail('response_api_info');
+    // The key and all other private/unused API attributes stay on the host.
+    return ['version'=>$value['version'],'serial'=>$serials[0]];
+}
+function sync_field_names($value) {
+    if (!is_array($value) || array_diff(array_keys($value),array_keys(sync_fields([])))) sync_fail('response_field_names');
+    $names=[];
+    for ($i=1;$i<=5;$i++) {
+        $field='customField'.$i;$label=$value[$field] ?? '';
+        if (!is_string($label)) sync_fail('response_field_names');
+        $names[$field]=$label!==''?$label:'Custom field '.$i;
+    }
+    return $names;
+}
+function sync_user_list($value) {
+    if (!is_array($value) || $value!==array_values($value)) sync_fail('response_user_list');
+    $seen=[];
+    foreach ($value as $user) {
+        if (!is_array($user) || !is_string($user['name'] ?? null)) sync_fail('response_user_list');
+        try { $uuid=sync_uuid($user['uuid'] ?? null); }
+        catch (RuntimeException $e) { sync_fail('response_user_list'); }
+        if (isset($seen[strtolower($uuid)])) sync_fail('response_user_list');
+        $seen[strtolower($uuid)]=true;
+    }
+    return $value;
+}
 function sync_certificate_warning($body, $status) {
     // Only retry a TLS handshake failure: a request with an HTTP response may
     // already have reached the server, so it must never be replayed here.
@@ -77,28 +140,29 @@ function sync_dispatch($request, $environment) {
     if (!preg_match('/^[0-9]{1,4}$/',$slot) || !isset($config['servers'][$slot]) || array_diff(array_keys($server),['slot','serial'])) sync_fail('configuration');
     $ms=$config['servers'][$slot];
     if (strtolower(parse_url($ms['FullURI'] ?? '',PHP_URL_SCHEME) ?? '')!=='https') sync_fail('tls');
-    $send=function($command) use($environment,$slot) { return $environment['send']($slot,$command); };
-    $info=$send('/jdev/cfg/apiKey');
-    if (!is_array($info)) sync_fail('response');
-    $version=(string)($info['version'] ?? '');
+    $send=function($command) use($environment,$slot) {
+        try { return $environment['send']($slot,$command); }
+        catch (RuntimeException $e) {
+            $stages=['/jdev/cfg/apiKey'=>'response_api_info','/jdev/sps/getcustomuserfields'=>'response_field_names','/jdev/sps/getuserlist2'=>'response_user_list'];
+            if ($e->getMessage()==='response' && isset($stages[$command])) sync_fail($stages[$command]);
+            throw $e;
+        }
+    };
+    $info=sync_api_info($send('/jdev/cfg/apiKey'));
+    $version=$info['version'];
     if (!preg_match('/^17\.[0-9]+(?:\.[0-9]+){0,2}$/',$version)) sync_fail('unsupported');
-    $serial=strtoupper(preg_replace('/[^0-9a-f]/i','',(string)($info['mac'] ?? '')));
-    if (strlen($serial)!==12) sync_fail('response');
+    $serial=$info['serial'];
     if (isset($server['serial']) && $server['serial']!==$serial) sync_fail('identity_changed');
     if ($op==='probe') {
-        $names=$send('/jdev/sps/getcustomuserfields');
-        if (!is_array($names) || count(array_intersect(array_keys($names),array_keys(sync_fields([]))))!==5) sync_fail('unsupported');
-        foreach (array_keys(sync_fields([])) as $key) if (!is_string($names[$key])) sync_fail('response');
-        $users=$send('/jdev/sps/getuserlist2');
-        if (!is_array($users) || $users!==array_values($users)) sync_fail('response');
+        $names=sync_field_names($send('/jdev/sps/getcustomuserfields'));
+        $users=sync_user_list($send('/jdev/sps/getuserlist2'));
         return ['server'=>['slot'=>$slot,'serial'=>$serial],'name'=>(string)$ms['Name'],
             'loxberry_version'=>$config['version'],'miniserver_version'=>$version,'field_names'=>array_intersect_key($names,sync_fields([])),
             'authentication'=>'LoxBerry mshttp_call2 / HTTPS Basic compatibility','user_count'=>count($users)];
     }
     if (!isset($server['serial'])) sync_fail('invalid');
     if ($op==='users') {
-        $users=$send('/jdev/sps/getuserlist2');
-        if (!is_array($users) || $users!==array_values($users)) sync_fail('response');
+        $users=sync_user_list($send('/jdev/sps/getuserlist2'));
         $result=[];
         foreach ($users as $user) {
             if (!is_array($user) || !is_string($user['name'] ?? null)) sync_fail('response');
@@ -152,7 +216,7 @@ function sync_main() {
         $data=sync_dispatch($request,$environment);
         echo json_encode(['ok'=>true,'data'=>$data,'warnings'=>$warnings],JSON_THROW_ON_ERROR)."\n";
     } catch (Throwable $e) {
-        $codes=['configuration','tls','authentication','permissions','network','unsupported','identity_changed','user_missing','response','verification','invalid'];
+        $codes=['configuration','tls','authentication','permissions','network','unsupported','identity_changed','user_missing','response','response_api_info','response_field_names','response_user_list','verification','invalid'];
         $code=in_array($e->getMessage(),$codes,true)?$e->getMessage():'configuration';
         echo json_encode(['ok'=>false,'error'=>$code,'warnings'=>$warnings])."\n";
     }

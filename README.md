@@ -31,3 +31,5 @@ set real values privately. Do not commit `.env`, local settings or production lo
 Zie [versie 1.2.3: afronding en standaard werkregime](docs/ROUNDING_AND_DEFAULT_REGIME.md) voor de nieuwe HR-instellingen.
 
 Zie [versie 1.2.4: lokaal IP-adres en certificaatwaarschuwingen](docs/LOCAL_IP_CERTIFICATE_COMPATIBILITY.md) voor de LoxBerry-compatibiliteit.
+
+Zie [versie 1.2.5: Miniserver-antwoorden verwerken](docs/MINISERVER_RESPONSE_COMPATIBILITY.md) voor de verwerking van apiKey en lege veldlabels.

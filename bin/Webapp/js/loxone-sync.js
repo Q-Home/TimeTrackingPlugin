@@ -14,7 +14,7 @@
   async function api(path,options={}){
     const response=await fetch('/api/v1/loxone-sync'+path,{cache:'no-store',...options,headers:{Authorization:'Bearer '+(localStorage.getItem('access_token')||''),...options.headers}});
     if(response.status===401){location.href='index.html';throw Error('Meld opnieuw aan.');}
-    const body=await response.json();if(!response.ok)throw Error(body.error||'De aanvraag kon niet worden verwerkt.');return body.data;
+    const body=await response.json();if(!response.ok){if(Array.isArray(body.transport_warnings))transportWarnings(body.transport_warnings);throw Error(body.error||'De aanvraag kon niet worden verwerkt.');}return body.data;
   }
   const post=(path,data={})=>api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
   const fail=e=>notice(e.message,true);

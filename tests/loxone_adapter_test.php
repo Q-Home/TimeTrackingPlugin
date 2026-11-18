@@ -115,4 +115,47 @@ check(count($sdkCalls)===4 && count($warnings)===1);
 $result=sync_dispatch(['operation'=>'patch','server'=>$server,'uuid'=>$uuid,'fields'=>['customField1'=>'8u 00m']],$compatible);
 check($result['fields']['customField1']==='8u 00m');
 foreach (['password','userRights','usergroups','nfcTags','keycodes','validFrom','validUntil','customField2','name','uuid'] as $key) check($user[$key]===$original[$key]);
+// apiKey uses a single-quoted literal on real firmware, with snr rather than mac.
+$literal="{'snr':'AABBCCDDEEFF','version':'17.0.7.14','key':'SYNTHETIC_PRIVATE','httpsStatus':2,'local':true}";
+$formats=[
+    $literal,
+    "{snr: 'aa:bb:cc:dd:ee:ff', version: '17.0.7.14', local: false}",
+    '{"snr":"AABBCCDDEEFF","version":"17.0.7.14"}',
+    ['version'=>'17.0.7.14','mac'=>'AA-BB-CC-DD-EE-FF'],
+    ['version'=>'17.0.7.14','mac'=>'AABBCCDDEEFF','snr'=>'aabbccddeeff'],
+];
+foreach ($formats as $format) {
+    $info=sync_api_info($format);
+    check($info===['version'=>'17.0.7.14','serial'=>'AABBCCDDEEFF']);
+    check(strpos(json_encode($info),'SYNTHETIC_PRIVATE')===false);
+}
+$escaped=<<<'LITERAL'
+{'version':'17.0.7.14','snr':'AABBCCDDEEFF','name':'D\'Example "Unit"','path':'C:\\test','unicode':'\u00e9'}
+LITERAL;
+check(sync_api_info($escaped)['serial']===$serial);
+foreach (["{'version':'17.0','snr':'AABBCCDDEEFF'}; system('SYNTHETIC_PRIVATE')", "{'version':'17.0','snr':function(){}}", "{'version':'17.0','snr':'bad'}", 'not an object',
+    ['version'=>'17.0','mac'=>'AABBCCDDEEFF','snr'=>'112233445566'],['version'=>'17.0'],['snr'=>$serial],str_repeat('x',20001)] as $bad) {
+    fails('response_api_info',function() use($bad){sync_api_info($bad);});
+}
+check(count(sync_field_names([]))===5);
+check(sync_field_names([])['customField1']==='Custom field 1');
+check(sync_field_names(['customField3'=>'Persoonlijk label'])['customField3']==='Persoonlijk label');
+check(sync_field_names(['customField1'=>''])['customField1']==='Custom field 1');
+fails('response_field_names',function(){sync_field_names(['other'=>'not a custom field']);});
+fails('response_field_names',function(){sync_field_names(['customField1'=>['not a label']]);});
+check(sync_user_list([])===[]);
+fails('response_user_list',function(){sync_user_list(['users'=>[]]);});
+fails('response_user_list',function(){sync_user_list([['uuid'=>'bad','name'=>'Synthetic']]);});
+fails('response_user_list',function() use($uuid){sync_user_list([['uuid'=>$uuid,'name'=>'A'],['uuid'=>$uuid,'name'=>'B']]);});
+$observed=$env;
+$observed['send']=function($slot,$command) use($literal) {
+    if ($command==='/jdev/cfg/apiKey') return sync_unwrap(json_encode(['LL'=>['Code'=>'200','value'=>$literal]]),200);
+    if ($command==='/jdev/sps/getcustomuserfields' || $command==='/jdev/sps/getuserlist2') return sync_unwrap('{"LL":{"Code":"200","value":"[]"}}',200);
+    throw new Exception('Unexpected command');
+};
+$probe=sync_dispatch(['operation'=>'probe','server'=>['slot'=>'1']],$observed);
+check($probe['server']['serial']===$serial && $probe['user_count']===0 && count($probe['field_names'])===5);
+check(strpos(json_encode($probe),'SYNTHETIC_PRIVATE')===false);
+$bad=$env;$bad['send']=function(){sync_fail('response');};
+fails('response_api_info',function() use($bad){sync_dispatch(['operation'=>'probe','server'=>['slot'=>'1']],$bad);});
 echo 'Host adapter: '.$count." assertions passed; no network used.\n";

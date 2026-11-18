@@ -9,7 +9,11 @@ def routes(service,prefix):
     @bp.after_request
     def no_cache(response):response.headers['Cache-Control']='no-store';return response
     @bp.errorhandler(SyncError)
-    def sync_error(exc):return jsonify(success=False,error=MESSAGES.get(exc.code,MESSAGES['response']),code=exc.code),503
+    def sync_error(exc):
+        values=request.get_json(silent=True)
+        server={'slot':str(values['slot'])} if isinstance(values,dict) and 'slot' in values else service.config()['server']
+        return jsonify(success=False,error=MESSAGES.get(exc.code,MESSAGES['response']),code=exc.code,
+                       transport_warnings=service.transport_status(server)['warnings']),503
     @bp.errorhandler(ValueError)
     @bp.errorhandler(KeyError)
     @bp.errorhandler(TypeError)
