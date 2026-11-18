@@ -32,6 +32,30 @@ function sync_unwrap($body, $http) {
     }
     return $value;
 }
+function sync_certificate_warning($body, $status) {
+    // Only retry a TLS handshake failure: a request with an HTTP response may
+    // already have reached the server, so it must never be replayed here.
+    if (($body !== null && $body !== false) || (int)($status['code'] ?? -1) !== 0) return null;
+    $error=(string)($status['status'] ?? '').' '.(string)($status['message'] ?? '');
+    if (preg_match('/no alternative certificate subject name|certificate subject name.*match|certificate.*host ?name.*match/i',$error)) return 'certificate_hostname_mismatch';
+    if (preg_match('/certificate.*expired|certificate.*not yet valid/i',$error)) return 'certificate_expired';
+    if (preg_match('/SSL certificate problem|self.signed certificate|unable to get.*issuer certificate|unable to verify.*certificate|certificate verify failed|SSL peer certificate.*not OK/i',$error)) return 'certificate_untrusted';
+    return null;
+}
+function sync_sdk_send($slot, $command, $sdk, &$warnings) {
+    // Match LoxBerry's local-IP compatibility only after a proven certificate
+    // failure. Keep HTTPS; do not retry auth, timeout or uncertain write errors.
+    $verify=!$warnings;
+    list($body,$status)=$sdk($slot,$command,['timeout'=>5,'ssl_verify_mode'=>$verify?1:0,'ssl_verify_hostname'=>$verify?1:0]);
+    if (!is_array($status)) sync_fail('configuration');
+    $warning=$verify?sync_certificate_warning($body,$status):null;
+    if ($warning) {
+        $warnings=[$warning];
+        list($body,$status)=$sdk($slot,$command,['timeout'=>5,'ssl_verify_mode'=>0,'ssl_verify_hostname'=>0]);
+        if (!is_array($status)) sync_fail('configuration');
+    }
+    return sync_unwrap($body,(int)($status['code'] ?? 0));
+}
 function sync_dispatch($request, $environment) {
     if (!is_array($request)) sync_fail('invalid');
     $op=$request['operation'] ?? '';
@@ -111,6 +135,7 @@ function sync_dispatch($request, $environment) {
 
 function sync_main() {
     ini_set('display_errors','0');ini_set('log_errors','0');ini_set('error_log','/dev/null');
+    $warnings=[];
     try {
         $home=getenv('LBHOMEDIR') ?: '/opt/loxberry';
         set_include_path($home.'/libs/phplib'.PATH_SEPARATOR.get_include_path());
@@ -118,19 +143,18 @@ function sync_main() {
         if (!function_exists('mshttp_call2')) sync_fail('configuration');
         $environment=[
             'config'=>function() { return ['version'=>LBSystem::lbversion(),'servers'=>LBSystem::get_miniservers() ?: []]; },
-            'send'=>function($slot,$command) {
+            'send'=>function($slot,$command) use(&$warnings) {
                 // Bounded SDK call; never forward raw errors, URI or user objects.
-                list($body,$status)=mshttp_call2($slot,$command,['timeout'=>5,'ssl_verify_mode'=>1,'ssl_verify_hostname'=>1]);
-                return sync_unwrap($body,(int)($status['code'] ?? 0));
+                return sync_sdk_send($slot,$command,'mshttp_call2',$warnings);
             }
         ];
         $request=json_decode(stream_get_contents(STDIN,20000),true,32,JSON_THROW_ON_ERROR);
         $data=sync_dispatch($request,$environment);
-        echo json_encode(['ok'=>true,'data'=>$data],JSON_THROW_ON_ERROR)."\n";
+        echo json_encode(['ok'=>true,'data'=>$data,'warnings'=>$warnings],JSON_THROW_ON_ERROR)."\n";
     } catch (Throwable $e) {
         $codes=['configuration','tls','authentication','permissions','network','unsupported','identity_changed','user_missing','response','verification','invalid'];
         $code=in_array($e->getMessage(),$codes,true)?$e->getMessage():'configuration';
-        echo json_encode(['ok'=>false,'error'=>$code])."\n";
+        echo json_encode(['ok'=>false,'error'=>$code,'warnings'=>$warnings])."\n";
     }
 }
 if (PHP_SAPI==='cli' && realpath($_SERVER['SCRIPT_FILENAME'] ?? '')===__FILE__) sync_main();

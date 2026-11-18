@@ -22,9 +22,16 @@ MESSAGES = {
     'busy':'Er wordt al gesynchroniseerd of ingesteld. Probeer later opnieuw.',
 }
 
+TRANSPORT_WARNINGS = {
+    'certificate_hostname_mismatch':'Het HTTPS-certificaat past niet bij het ingestelde IP-adres of de hostnaam. De koppeling gaat door via HTTPS zonder certificaatcontrole, zoals bij de lokale LoxBerry-verbinding.',
+    'certificate_untrusted':'Het HTTPS-certificaat wordt niet vertrouwd. De koppeling gaat door via HTTPS zonder certificaatcontrole, zoals bij de lokale LoxBerry-verbinding.',
+    'certificate_expired':'Het HTTPS-certificaat is verlopen of nog niet geldig. De koppeling gaat door via HTTPS zonder certificaatcontrole, zoals bij de lokale LoxBerry-verbinding.',
+}
+
 
 class Bridge:
-    def __init__(self, path='/run/timetracking-loxone/bridge.sock'): self.path = path
+    def __init__(self, path='/run/timetracking-loxone/bridge.sock', warning_handler=None):
+        self.path, self.warning_handler = path, warning_handler
 
     def call(self, operation, server=None, **data):
         message = {'operation':operation, **data}
@@ -40,8 +47,15 @@ class Bridge:
                     if not chunk or len(body)+len(chunk)>2_000_000: raise ValueError()
                     body+=chunk
             result=json.loads(body)
+            warnings=result.get('warnings',[])
+            warnings=list(dict.fromkeys(w for w in warnings if isinstance(w,str) and w in TRANSPORT_WARNINGS)) if isinstance(warnings,list) else []
+            if self.warning_handler and (result.get('ok') or warnings) and 'warnings' in result:
+                self.warning_handler(server,warnings)
             if not result.get('ok'): raise SyncError(result.get('error') if result.get('error') in MESSAGES else 'response')
-            return result['data']
+            data=result['data']
+            if operation=='probe':
+                data={**data,'transport_warnings':[{'code':w,'message':TRANSPORT_WARNINGS[w]} for w in warnings]}
+            return data
         except SyncError: raise
         except (OSError,ValueError,KeyError,TypeError,AttributeError): raise SyncError('bridge_unavailable') from None
 

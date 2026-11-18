@@ -10,3 +10,5 @@
     width: 100%;
   }
 }
+
+#connection-warnings .notice.warning{background:#fff4db;color:#704700;border:1px solid #e8c66d}
