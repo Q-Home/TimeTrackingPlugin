@@ -20,6 +20,7 @@ PSBIN=$LBPSBIN/$PDIR
 PBIN=$LBPBIN/$PDIR
 
 # your code goes here
+sudo rm -f /etc/cron.d/timetrackingplugin-loxone-sync
 if command -v systemctl >/dev/null 2>&1; then
     sudo systemctl disable --now timetracking-loxone.service || true
 fi

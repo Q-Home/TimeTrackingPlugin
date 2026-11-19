@@ -265,6 +265,7 @@ class SyncService:
             rows.append(row)
         return {'config':config,'rows':rows,'dry_run':True,'pending':self.db.loxone_sync_meta.find_one({'_id':'queue'}) or {},
                 'run':self.db.loxone_sync_meta.find_one({'_id':'run'}) or {},
+                'worker':self.db.loxone_sync_meta.find_one({'_id':'worker'}) or {},
                 'transport':self.transport_status(config['server'])}
 
     @staticmethod
@@ -278,6 +279,18 @@ class SyncService:
         return {'queued':True,'message':'Ingepland voor de eerstvolgende cronronde (normaal binnen één minuut).'}
 
     def run(self,now=None):
+        started=instant(now or clock())
+        self.db.loxone_sync_meta.update_one({'_id':'worker'},{'$set':{'started_at':started,'error_code':None}},upsert=True)
+        try:
+            result=self._run(now)
+            self.db.loxone_sync_meta.update_one({'_id':'worker'},{'$set':{'finished_at':clock(),'result':result,'error_code':None}},upsert=True)
+            return result
+        except Exception as exc:
+            code=exc.code if isinstance(exc,SyncError) else 'worker_failure'
+            self.db.loxone_sync_meta.update_one({'_id':'worker'},{'$set':{'finished_at':clock(),'error_code':code}},upsert=True)
+            raise
+
+    def _run(self,now=None):
         now=instant(now or clock())
         with self.lock() as owner:
             config=self.config()

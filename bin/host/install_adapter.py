@@ -1,10 +1,41 @@
 #!/usr/bin/env python3
 """Called by the root ZIP lifecycle; never copies Miniserver configuration."""
 import os
-from pathlib import Path
+from pathlib import Path,PurePosixPath
 import re
 import subprocess
 import sys
+
+CRON_NAME='timetrackingplugin-loxone-sync'
+CRON_MARKER='# Managed by TimeTrackingPlugin: Loxone synchronization'
+
+def cron_content(home,folder):
+    if not re.fullmatch(r'[A-Za-z0-9_/-]+',str(home)) or not re.fullmatch(r'[A-Za-z0-9_-]+',folder):
+        raise ValueError('Invalid installation path')
+    logdir=PurePosixPath(str(home))/'log/plugins'/folder
+    return f'''{CRON_MARKER}
+MAILTO=""
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+* * * * * loxberry mkdir -p {logdir} && flock -n /run/timetracking-loxone/sync-worker.lock docker exec backend python /app/scripts/loxone_sync.py >> {logdir}/loxone_sync.log 2>&1
+'''
+
+def write_scheduler(home,folder,cron_dir=Path('/etc/cron.d')):
+    content=cron_content(home,folder)
+    cron_dir=Path(cron_dir);cron_dir.mkdir(parents=True,exist_ok=True)
+    target=cron_dir/CRON_NAME
+    if target.exists() and CRON_MARKER not in target.read_text(encoding='utf-8'):
+        raise ValueError('Scheduler file has custom content; preserve it and inspect host configuration')
+    for other in cron_dir.iterdir():
+        if other==target or not other.is_file() or not re.fullmatch(r'[A-Za-z0-9_-]+',other.name):continue
+        text=other.read_text(encoding='utf-8',errors='replace')
+        if any(not line.lstrip().startswith('#') and re.match(r'^\s*(?:\S+\s+){5}(?:loxberry|root)\s+.*\bloxone_sync\.py(?:\s|$)',line) for line in text.splitlines()):
+            if target.exists():target.unlink()  # Only our positively identified generated file.
+            return other
+    temporary=target.with_name('.'+CRON_NAME+'.tmp')
+    temporary.write_text(content,encoding='utf-8');temporary.chmod(0o644)
+    temporary.replace(target)
+    return target
 
 
 def unit(home,folder):
@@ -46,6 +77,13 @@ def install(home,folder):
     subprocess.run(['systemctl','daemon-reload'],check=True)
     subprocess.run(['systemctl','enable','timetracking-loxone.service'],check=True,stdout=subprocess.DEVNULL)
     subprocess.run(['systemctl','restart','timetracking-loxone.service'],check=True)
+    import pwd
+    account=pwd.getpwnam('loxberry')
+    logdir=Path(home)/'log/plugins'/folder
+    logdir.mkdir(parents=True,exist_ok=True)
+    os.chown(logdir,account.pw_uid,account.pw_gid)
+    scheduler=write_scheduler(home,folder)
+    print('<OK> Loxone synchronization task installed or verified: '+str(scheduler))
 
 
 if __name__=='__main__':install(sys.argv[1],sys.argv[2])

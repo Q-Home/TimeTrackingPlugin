@@ -67,6 +67,18 @@ class SyncTests(unittest.TestCase):
         with patch('app.loxone_sync.service.clock',return_value=now):return self.sync.run(now)
     def test_default_is_off_and_does_not_contact_miniserver(self):
         self.assertEqual(self.run_sync(),{'disabled':True});self.assertEqual(self.bridge.calls,[])
+        worker=self.sync.preview(NOW,remote=False)['worker']
+        self.assertIsNotNone(worker['started_at']);self.assertEqual(worker['result'],{'disabled':True})
+    def test_worker_failure_is_recorded_without_raw_error_details(self):
+        with patch.object(self.sync,'_run',side_effect=RuntimeError('synthetic-private-password')):
+            with self.assertRaises(RuntimeError):self.sync.run(NOW)
+        worker=self.db.loxone_sync_meta.find_one({'_id':'worker'})
+        self.assertEqual(worker['error_code'],'worker_failure')
+        self.assertNotIn('synthetic-private',json.dumps(worker,default=str))
+    def test_completed_worker_records_counts_and_clears_error(self):
+        self.configure(True);self.link();self.run_sync()
+        worker=self.db.loxone_sync_meta.find_one({'_id':'worker'})
+        self.assertEqual(worker['result']['writes'],1);self.assertIsNone(worker['error_code'])
     def test_exact_name_binding_and_manual_override(self):
         self.configure();self.link();self.assertEqual(self.sync.config()['bindings'][self.uid]['uuid'],UUID)
         self.bridge.users[0]['name']='different.name'
