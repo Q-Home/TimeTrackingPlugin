@@ -68,6 +68,18 @@ class HRService:
                 if exc.status != 409: raise
         raise HRError('Initialisatie is druk bezet. Probeer opnieuw.', 409)
 
+    def initialize_simple_mode(self):
+        for _ in range(20):
+            before=self.state()
+            if 'simple_mode' in before:return
+            state=deepcopy(before);state['simple_mode']=True
+            self.audit(state,'system:upgrade','workflow',None,{'simple_mode':True},
+                       'Eenvoudige tijdregistratie standaard vanaf versie 1.3.0')
+            try:self.commit(before,state);return
+            except HRError as exc:
+                if exc.status!=409:raise
+        raise HRError('Initialisatie is druk bezet. Probeer opnieuw.',409)
+
     def employees(self, state=None, include_unresolved=False):
         state = state or self.state()
         result = []
@@ -152,17 +164,26 @@ class HRService:
         for row in result['days']:
             covering = [a for a in approvals if a['start']<=row['date']<=a['end']]
             row['approval_status'] = 'afgesloten' if any(a['status']=='closed' for a in covering) else 'goedgekeurd' if covering else 'te_controleren'
+            if not covering and state.get('simple_mode'):
+                row['approval_status']='toekomstig' if row['future'] else 'automatisch_goedgekeurd'
             for approval in covering:
                 if approval['fingerprint']!=self.calculation_hash(uid,day(approval['start']),day(approval['end']),state):
                     row['approval_status']='bron_gewijzigd'
                     row['anomalies'].append({'code':'approval_source_changed','message':'Brongegevens wijken af van de goedgekeurde momentopname.','event_id':None})
             if covering: row['status'] = 'afwijking' if row['approval_status']=='bron_gewijzigd' else 'goedgekeurd'
+            if state.get('simple_mode'):
+                row['notes']=[{**a,'message':'Automatisch afgesloten.' if a['code']=='automatic_stop' else a['message']}
+                              for a in row['anomalies'] if a['code'] in {'automatic_stop','no_registration'}]
+                row['anomalies']=[a for a in row['anomalies'] if a['code'] not in {'automatic_stop','no_registration'}]
+                if not row['anomalies'] and not covering:
+                    row['status']='bezig' if row['provisional'] else 'afgesloten' if row['events'] or row['periods'] else 'geen_registratie'
         covering = [a for a in approvals if a['start']<=str(start) and a['end']>=str(end)]
         result['approval_status'] = 'afgesloten' if any(a['status']=='closed' for a in covering) else 'goedgekeurd' if covering else 'te_controleren'
+        if not covering and state.get('simple_mode'):result['approval_status']='automatisch_goedgekeurd'
         if any(d['approval_status']=='bron_gewijzigd' for d in result['days']):
             result['approval_status']='bron_gewijzigd'
         result['summary']['anomaly_count']=sum(len(d['anomalies']) for d in result['days'])
-        result.update(employee=employee,start=str(start),end=str(end),revision=state['revision'])
+        result.update(employee=employee,start=str(start),end=str(end),revision=state['revision'],simple_mode=bool(state.get('simple_mode')))
         result['requests'] = [r for r in state['requests'] if r['employee_id']==uid]
         result['approvals'] = [a for a in state['approvals'] if a['employee_id']==uid]
         result['audit'] = [a for a in state['audit'] if a.get('employee_id')==uid]
@@ -256,7 +277,11 @@ class HRService:
         reason=self.reason(data)
         def apply(state):
             uid=data.get('employee_id')
-            if kind=='schedule':
+            if kind=='workflow':
+                if not isinstance(data.get('simple_mode'),bool):raise HRError('Kies eenvoudige of handmatige verwerking.')
+                old={'simple_mode':bool(state.get('simple_mode'))}
+                state['simple_mode']=data['simple_mode'];value={'simple_mode':state['simple_mode']}
+            elif kind=='schedule':
                 value=data['schedule'];name=str(value.get('name','')).strip()
                 days=value.get('days')
                 if not name or len(name)>100 or not isinstance(days,list) or len(days)!=7: raise HRError('Een rooster heeft een naam en zeven weekdagen nodig.')
@@ -482,7 +507,7 @@ class HRService:
 
     def settings_view(self,state=None):
         state=state or self.state()
-        return {'revision':state['revision'],'schedules':state['schedules'],'assignments':state['assignments'],
+        return {'revision':state['revision'],'simple_mode':bool(state.get('simple_mode')),'schedules':state['schedules'],'assignments':state['assignments'],
             'calendar':state['calendar'],'policies':state['policies'],'rules':policy(state,datetime.now(timezone.utc).astimezone(ZoneInfo(state.get('timezone',DEFAULT_RULES['timezone']))).date()),
             'default_regime_from':state.get('default_regime_from'),
             'profiles':state['profiles'],'pending_ingest':state['pending_ingest'],

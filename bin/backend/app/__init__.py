@@ -48,6 +48,7 @@ def create_app():
     from app.hr.routes import register_hr_routes, register_hr_errors
     hr_service = HRService(mongo.db)
     hr_service.initialize_defaults()
+    hr_service.initialize_simple_mode()
     app.extensions['hr_service'] = hr_service
     app.register_blueprint(register_hr_routes(hr_service, Config.API_PREFIX))
     register_hr_errors(app)
