@@ -45,9 +45,12 @@ class SyncService:
 
     def config(self):
         defaults={
-            '_id':'settings','revision':0,'enabled':False,'server':None,'interval':300,
+            '_id':'settings','revision':0,'enabled':False,'server':None,'interval':600,
             'mapping':{f:'none' for f in FIELDS},'bindings':{},'auto_link':True}
-        return {**defaults,**(self.db.loxone_sync_config.find_one({'_id':'settings'}) or {})}
+        config={**defaults,**(self.db.loxone_sync_config.find_one({'_id':'settings'}) or {})}
+        # Apply the ten-minute floor to existing installations as well.
+        config['interval']=max(600,config['interval'])
+        return config
 
     @staticmethod
     def identity_key(value):
@@ -150,8 +153,8 @@ class SyncService:
             if not isinstance(enabled,bool) or not isinstance(mapping,dict) or set(mapping)!=set(FIELDS) or any(v not in METRICS for v in mapping.values()):
                 raise HRError('Kies voor elk custom field een geldige toewijzing.')
             interval=data.get('interval')
-            if isinstance(interval,bool) or not isinstance(interval,int) or not 60<=interval<=3600:
-                raise HRError('Kies een synchronisatie-interval van 60 tot 3600 seconden.')
+            if isinstance(interval,bool) or not isinstance(interval,int) or not 600<=interval<=3600:
+                raise HRError('Kies een synchronisatie-interval van 600 tot 3600 seconden.')
             server=data.get('server')
             if server is not None and (not isinstance(server,dict) or set(server)!={'slot','serial'} or not all(isinstance(v,str) and v for v in server.values())):
                 raise HRError('Kies een geteste Miniserver uit LoxBerry.')
@@ -274,7 +277,7 @@ class SyncService:
         return ObjectId(uid)
 
     def request_sync(self,actor):
-        self.db.loxone_sync_meta.update_one({'_id':'queue'},{'$inc':{'sequence':1,'manual':1},
+        self.db.loxone_sync_meta.update_one({'_id':'queue'},{'$inc':{'sequence':1,'manual':0 if actor.startswith('system:') else 1},
             '$set':{'requested_at':clock(),'requested_by':actor}},upsert=True)
         return {'queued':True,'message':'Ingepland voor de eerstvolgende cronronde (normaal binnen één minuut).'}
 
@@ -300,9 +303,8 @@ class SyncService:
             queue=self.db.loxone_sync_meta.find_one({'_id':'queue'}) or {}
             last=self.db.loxone_sync_meta.find_one({'_id':'run'}) or {}
             manual=queue.get('manual',0)>last.get('manual',0)
-            dirty=queue.get('sequence',0)>last.get('sequence',0)
             due=not last.get('at') or (now-instant(last['at'])).total_seconds()>=config['interval']
-            if not manual and not due and (not dirty or (now-instant(queue['requested_at'])).total_seconds()<10):return {'waiting':True}
+            if not manual and not due:return {'waiting':True}
             success=writes=0;failed=len(identity_errors)
             for uid,binding in config['bindings'].items():
                 if uid in identity_errors:continue

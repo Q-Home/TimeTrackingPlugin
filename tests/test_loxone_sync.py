@@ -60,11 +60,34 @@ class SyncTests(unittest.TestCase):
     def configure(self,enabled=False,mapping=None,**extra):
         mapping=mapping or {f:('today' if i==0 else 'updated' if i==1 else 'none') for i,f in enumerate(FIELDS)}
         return self.sync.save({'revision':self.sync.config()['revision'],'enabled':enabled,'server':SERVER,
-            'mapping':mapping,'interval':300,'reason':'Synthetic configuration','owned_fields':[f for f,v in mapping.items() if v!='none'],**extra},'synthetic.admin')
+            'mapping':mapping,'interval':600,'reason':'Synthetic configuration','owned_fields':[f for f,v in mapping.items() if v!='none'],**extra},'synthetic.admin')
     def link(self,**extra):
         return self.sync.link({'revision':self.sync.config()['revision'],'employee_id':self.uid,'reason':'Synthetic link',**extra},'synthetic.admin')
     def run_sync(self,now=NOW):
         with patch('app.loxone_sync.service.clock',return_value=now):return self.sync.run(now)
+    def test_existing_short_interval_uses_ten_minutes(self):
+        self.db.loxone_sync_config.insert_one({'_id':'settings','interval':300})
+        self.assertEqual(self.sync.config()['interval'],600)
+    def test_changed_badges_wait_for_ten_minute_round(self):
+        self.configure(True);self.link();self.run_sync()
+        self.db.badge_logs.update_one({'action':'STOP'},{'$set':{'timestamp':'2026-11-09T15:00Z'}})
+        notify_change(self.db)
+        self.bridge.calls.clear()
+        self.assertEqual(self.run_sync(NOW+timedelta(minutes=9,seconds=59)),{'waiting':True})
+        self.assertFalse(self.bridge.writes)
+        self.assertEqual(self.run_sync(NOW+timedelta(minutes=10))['writes'],1)
+        self.assertEqual(self.bridge.fields['customField1'],'6u 30m')
+    def test_manual_sync_can_run_before_ten_minutes(self):
+        self.configure(True);self.link();self.run_sync()
+        self.db.badge_logs.update_one({'action':'STOP'},{'$set':{'timestamp':'2026-11-09T15:00Z'}})
+        self.sync.request_sync('synthetic.admin')
+        self.assertEqual(self.run_sync(NOW+timedelta(minutes=1))['writes'],1)
+    def test_system_identity_queue_does_not_bypass_interval(self):
+        self.configure(True);self.link();self.run_sync()
+        self.sync.request_sync('system:loxone-id')
+        self.assertEqual(self.run_sync(NOW+timedelta(minutes=1)),{'waiting':True})
+    def test_short_interval_cannot_be_saved(self):
+        with self.assertRaises(HRError):self.configure(True,interval=300)
     def test_default_is_off_and_does_not_contact_miniserver(self):
         self.assertEqual(self.run_sync(),{'disabled':True});self.assertEqual(self.bridge.calls,[])
         worker=self.sync.preview(NOW,remote=False)['worker']
@@ -112,7 +135,7 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(set(patch_fields),{'customField1','customField2'})
         self.assertEqual(patch_fields['customField1'],'6u 00m')
         self.assertEqual(self.bridge.fields['customField3'],'Unmanaged customField3')
-        self.run_sync(NOW+timedelta(minutes=6));self.assertEqual(len(self.bridge.writes),1)
+        self.run_sync(NOW+timedelta(minutes=10));self.assertEqual(len(self.bridge.writes),1)
     def test_timestamp_alone_does_not_trigger_a_write(self):
         self.configure(True);self.link();self.run_sync();stamp=self.bridge.fields['customField2']
         self.run_sync(NOW+timedelta(minutes=10));self.assertEqual(stamp,self.bridge.fields['customField2']);self.assertEqual(len(self.bridge.writes),1)
@@ -157,16 +180,16 @@ class SyncTests(unittest.TestCase):
             saved=self.db.loxone_sync_status.find_one({'_id':self.uid});self.assertEqual(saved['error_code'],code)
             self.assertEqual(saved['retry_at'].replace(tzinfo=timezone.utc),NOW+timedelta(minutes=1))
             self.assertNotIn('password',saved['last_error'].lower())
-        self.bridge.error=None;self.run_sync(NOW+timedelta(minutes=6));self.assertEqual(len(self.bridge.writes),1)
+        self.bridge.error=None;self.run_sync(NOW+timedelta(minutes=10));self.assertEqual(len(self.bridge.writes),1)
     def test_changes_coalesce_and_another_writer_is_excluded(self):
         self.configure(True);self.link();self.run_sync()
         for _ in range(5):notify_change(self.db)
         with self.sync.lock():
             with self.assertRaises(SyncError):self.run_sync()
-        result=self.run_sync(NOW+timedelta(minutes=6));self.assertEqual(result['writes'],0)
+        result=self.run_sync(NOW+timedelta(minutes=10));self.assertEqual(result['writes'],0)
     def test_external_drift_is_repaired_only_in_managed_fields(self):
         self.configure(True);self.link();self.run_sync();self.bridge.fields['customField1']='wrong'
-        self.run_sync(NOW+timedelta(minutes=6));self.assertEqual(self.bridge.fields['customField1'],'6u 00m')
+        self.run_sync(NOW+timedelta(minutes=10));self.assertEqual(self.bridge.fields['customField1'],'6u 00m')
     def test_bridge_failure_never_fails_timekeeping_notification(self):
         with patch.object(self.db.loxone_sync_meta,'update_one',side_effect=RuntimeError('synthetic-private-string')):
             self.hr.commit(self.hr.state(),deepcopy(self.hr.state()))
@@ -175,11 +198,11 @@ class SyncTests(unittest.TestCase):
         self.configure(True);self.link();self.bridge.error='network';self.run_sync()
         self.bridge.error=None
         self.db.badge_logs.update_one({'action':'STOP'},{'$set':{'timestamp':'2026-11-09T15:00Z'}})
-        self.run_sync(NOW+timedelta(minutes=6))
+        self.run_sync(NOW+timedelta(minutes=10))
         self.assertEqual(self.bridge.fields['customField1'],'6u 30m')
     def test_unsafe_readback_is_quarantined_until_explicit_relink(self):
         self.configure(True);self.link();self.bridge.error='verification';self.run_sync()
-        self.bridge.error=None;self.run_sync(NOW+timedelta(minutes=6))
+        self.bridge.error=None;self.run_sync(NOW+timedelta(minutes=10))
         self.assertFalse(self.bridge.writes)
         self.link(replace=True,uuid=UUID)
         self.run_sync(NOW+timedelta(minutes=7));self.assertEqual(len(self.bridge.writes),1)
