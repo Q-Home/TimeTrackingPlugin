@@ -5,6 +5,10 @@ archive_dir="${6:-$(dirname -- "$0")}"
 home_dir="${LBHOMEDIR:-${5:-/opt/loxberry}}"
 plugin_folder="${3:-timetrackingplugin}"
 plugin_version="${4:-unknown}"
+if [ "$plugin_folder" != "timetrackingplugin" ]; then
+    echo "<ERROR> Q-Home identity migration is required before installing this update. Run tools/migrate_qhome.py first; do not create a second plugin."
+    exit 2
+fi
 if ! command -v python3 >/dev/null 2>&1; then
     echo "<ERROR> Python 3 is required to preserve and activate this plugin update."
     exit 2
