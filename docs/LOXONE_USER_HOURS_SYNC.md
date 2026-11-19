@@ -1,4 +1,6 @@
-# Persoonlijke urentotalen naar Loxone — 1.2.4
+# Persoonlijke urentotalen naar Loxone — 1.3.0
+
+**Vanaf 1.3.0:** medewerkers worden standaard automatisch gekoppeld via de Loxone-ID uit de registratie, zonder naamselectie per medewerker. Totalen zijn in eenvoudige werking direct bruikbaar. De handmatige koppelstappen hieronder blijven alleen als uitzondering beschikbaar. Zie [de nieuwe standaardwerking](SIMPLE_TIME_AND_AUTOMATIC_SYNC.md).
 
 De plugin kan geselecteerde `customField1` t/m `customField5` van bestaande Miniservergebruikers bijwerken. Synchronisatie staat standaard **uit**. De HR-berekening blijft de enige rekenbron. Deze uitbreiding maakt geen functies of gebruikers in Loxone aan.
 

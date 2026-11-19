@@ -122,12 +122,13 @@ function sync_sdk_send($slot, $command, $sdk, &$warnings) {
 function sync_dispatch($request, $environment) {
     if (!is_array($request)) sync_fail('invalid');
     $op=$request['operation'] ?? '';
-    $allowed=['miniservers','probe','users','user','patch'];
+    $allowed=['miniservers','probe','users','user','patch','resolve'];
     if (!in_array($op,$allowed,true)) sync_fail('invalid');
     $keys=['operation'];
     if ($op!=='miniservers') $keys[]='server';
     if ($op==='user' || $op==='patch') $keys[]='uuid';
     if ($op==='patch') $keys[]='fields';
+    if ($op==='resolve') $keys[]='userid';
     if (array_diff(array_keys($request),$keys)) sync_fail('invalid');
     $config=$environment['config']();
     if (version_compare($config['version'],'3.0','<') || version_compare($config['version'],'5.0','>=')) sync_fail('unsupported');
@@ -169,6 +170,23 @@ function sync_dispatch($request, $environment) {
             $result[]=['uuid'=>sync_uuid($user['uuid'] ?? ''),'name'=>$user['name']];
         }
         return $result;
+    }
+    if ($op==='resolve') {
+        $id=$request['userid'] ?? null;
+        if (!is_string($id) || $id==='' || strlen($id)>128 || preg_match('/[\x00-\x1f]/',$id)) sync_fail('invalid');
+        if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-(?:[0-9a-f]{16}|[0-9a-f]{4}-[0-9a-f]{12})$/i',$id)) {
+            $hex=strtolower(str_replace('-','',sync_uuid($id)));
+            $uuid=substr($hex,0,8).'-'.substr($hex,8,4).'-'.substr($hex,12,4).'-'.substr($hex,16);
+        } else {
+            $match=$send('/jdev/sps/checkuserid/'.rawurlencode($id));
+            if (!is_array($match) || empty($match['uuid'])) sync_fail('identity_not_found');
+            $uuid=sync_uuid($match['uuid']);
+        }
+        $actual=$send('/jdev/sps/getuser/'.$uuid);
+        $actualUuid=sync_uuid($actual['uuid'] ?? null);
+        if (strtolower(str_replace('-','',$actualUuid))!==strtolower(str_replace('-','',$uuid))) sync_fail('identity_not_found');
+        $safe=sync_user($actual,$actualUuid);
+        return ['uuid'=>$safe['uuid'],'name'=>$safe['name'],'source_id'=>$id];
     }
     $uuid=sync_uuid($request['uuid'] ?? null);
     try { $before=$send('/jdev/sps/getuser/'.$uuid); }
@@ -216,7 +234,7 @@ function sync_main() {
         $data=sync_dispatch($request,$environment);
         echo json_encode(['ok'=>true,'data'=>$data,'warnings'=>$warnings],JSON_THROW_ON_ERROR)."\n";
     } catch (Throwable $e) {
-        $codes=['configuration','tls','authentication','permissions','network','unsupported','identity_changed','user_missing','response','response_api_info','response_field_names','response_user_list','verification','invalid'];
+        $codes=['configuration','tls','authentication','permissions','network','unsupported','identity_changed','identity_not_found','user_missing','response','response_api_info','response_field_names','response_user_list','verification','invalid'];
         $code=in_array($e->getMessage(),$codes,true)?$e->getMessage():'configuration';
         echo json_encode(['ok'=>false,'error'=>$code,'warnings'=>$warnings])."\n";
     }

@@ -1,4 +1,6 @@
-# HR-tijdregistratie — versie 1.2.6
+# HR-tijdregistratie — versie 1.3.0
+
+**Nieuwe standaard vanaf 1.3.0:** eenvoudige werking met automatische goedkeuring en direct beschikbare uren. Vakantie en handmatige goedkeuring zijn optioneel. De oude passages over verplichte controle gelden alleen in de optionele handmatige modus. Zie [eenvoudige tijdregistratie](SIMPLE_TIME_AND_AUTOMATIC_SYNC.md).
 
 **Nieuw in 1.2.6:** rechtstreeks per dag een registratie toevoegen, ook op lege dagen. De datum staat klaar; de werkelijke tijd en reden zijn verplicht. Zie [lege dagen aanvullen](CORRECT_EMPTY_DAYS.md).
 

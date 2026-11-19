@@ -37,7 +37,9 @@ def policy(state, on):
     # A persisted upgrade date prevents changing historical approvals.
     if not state.get('default_regime_from') or str(on) < state['default_regime_from']:
         defaults.update(default_workday_minutes=0, rounding_minutes=0)
-    return {**defaults, **chosen.get('rules', {}), 'timezone':state.get('timezone',DEFAULT_RULES['timezone'])}
+    rules={**defaults, **chosen.get('rules', {}), 'timezone':state.get('timezone',DEFAULT_RULES['timezone'])}
+    if state.get('simple_mode'): rules['approval_required']=False
+    return rules
 
 
 def local_bounds(on, timezone_name):

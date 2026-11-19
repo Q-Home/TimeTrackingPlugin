@@ -35,3 +35,5 @@ Zie [versie 1.2.4: lokaal IP-adres en certificaatwaarschuwingen](docs/LOCAL_IP_C
 Zie [versie 1.2.5: Miniserver-antwoorden verwerken](docs/MINISERVER_RESPONSE_COMPATIBILITY.md) voor de verwerking van apiKey en lege veldlabels.
 
 Zie [versie 1.2.6: lege dagen aanvullen](docs/CORRECT_EMPTY_DAYS.md) voor het toevoegen van START/STOP per dag.
+
+Zie [versie 1.3.0: eenvoudige tijdregistratie en automatische Loxone-koppeling](docs/SIMPLE_TIME_AND_AUTOMATIC_SYNC.md) voor de nieuwe standaardwerking.

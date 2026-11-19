@@ -158,4 +158,23 @@ check($probe['server']['serial']===$serial && $probe['user_count']===0 && count(
 check(strpos(json_encode($probe),'SYNTHETIC_PRIVATE')===false);
 $bad=$env;$bad['send']=function(){sync_fail('response');};
 fails('response_api_info',function() use($bad){sync_dispatch(['operation'=>'probe','server'=>['slot'=>'1']],$bad);});
+$identity=$env;$identityCommands=[];
+$identity['send']=function($slot,$command) use($env,$uuid,&$identityCommands) {
+    $identityCommands[]=$command;
+    if ($command==='/jdev/sps/checkuserid/1234') return ['uuid'=>$uuid,'name'=>'synthetic.employee'];
+    if (strpos($command,'/jdev/sps/checkuserid/')===0) return [];
+    return $env['send']($slot,$command);
+};
+$resolved=sync_dispatch(['operation'=>'resolve','server'=>$server,'userid'=>'1234'],$identity);
+check($resolved===['uuid'=>$uuid,'name'=>'synthetic.employee','source_id'=>'1234']);
+check(strpos(json_encode($resolved),'SYNTHETIC_PRIVATE')===false);
+check(in_array('/jdev/sps/checkuserid/1234',$identityCommands,true));
+$resolved=sync_dispatch(['operation'=>'resolve','server'=>$server,'userid'=>strtoupper($uuid)],$identity);
+check($resolved['uuid']===$uuid);
+$resolved=sync_dispatch(['operation'=>'resolve','server'=>$server,'userid'=>'12345678-1234-1234-1234-567890abcdef'],$identity);
+check($resolved['uuid']===$uuid);
+fails('identity_not_found',function() use($identity,$server){sync_dispatch(['operation'=>'resolve','server'=>$server,'userid'=>'missing'],$identity);});
+fails('invalid',function() use($identity,$server){sync_dispatch(['operation'=>'resolve','server'=>$server,'userid'=>['bad']],$identity);});
+fails('invalid',function() use($identity,$server){sync_dispatch(['operation'=>'resolve','server'=>$server,'userid'=>'1234','fields'=>['userRights'=>0]],$identity);});
+foreach ($identityCommands as $command) check(strpos($command,'addoredituser')===false);
 echo 'Host adapter: '.$count." assertions passed; no network used.\n";

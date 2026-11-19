@@ -15,6 +15,8 @@ MESSAGES = {
     'network':'De Miniserver is niet bereikbaar of antwoordt niet binnen de tijdslimiet.',
     'unsupported':'Deze firmware wordt niet ondersteund. Deze adapter vereist Miniserver 17.x en LoxBerry 3.x/4.x met mshttp_call2.',
     'identity_changed':'De Miniserveridentiteit is gewijzigd. Controleer de selectie en koppel bewust opnieuw.',
+    'identity_not_found':'De Loxone-gebruikers-ID uit de registratie is niet teruggevonden op de geselecteerde Miniserver.',
+    'identity_conflict':'De Loxone-gebruikers-ID is niet uniek of spreekt een bestaande koppeling tegen. Er wordt niet naar een andere gebruiker geschreven.',
     'user_missing':'De gekoppelde UUID bestaat niet meer. Er wordt niet automatisch aan een naamgenoot gekoppeld.',
     'response':'De Miniserver gaf geen bevestigde, geldige succesrespons.',
     'response_api_info':'De verbinding werkt, maar het antwoord met Miniserverversie en serienummer wordt niet herkend.',
