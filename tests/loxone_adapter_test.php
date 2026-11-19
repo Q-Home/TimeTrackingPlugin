@@ -177,4 +177,33 @@ fails('identity_not_found',function() use($identity,$server){sync_dispatch(['ope
 fails('invalid',function() use($identity,$server){sync_dispatch(['operation'=>'resolve','server'=>$server,'userid'=>['bad']],$identity);});
 fails('invalid',function() use($identity,$server){sync_dispatch(['operation'=>'resolve','server'=>$server,'userid'=>'1234','fields'=>['userRights'=>0]],$identity);});
 foreach ($identityCommands as $command) check(strpos($command,'addoredituser')===false);
+// Reproduce the Qbox response: only the server-owned lastEdit changes.
+foreach (['lastEdit','lastedit'] as $timestampKey) {
+    $fixture=$original;unset($fixture['lastedit']);$fixture[$timestampKey]=1;
+    $timestampEnv=$env;
+    $timestampEnv['send']=function($slot,$command) use(&$fixture,$env,$timestampKey) {
+        if (strpos($command,'/jdev/sps/getuser/')===0) return $fixture;
+        if (strpos($command,'/jdev/sps/addoredituser/')===0) {
+            $payload=json_decode(rawurldecode(substr($command,strlen('/jdev/sps/addoredituser/'))),true);
+            check(array_keys($payload)===['uuid','customField1']);
+            $fixture=array_replace($fixture,$payload);$fixture[$timestampKey]=2;
+            return $fixture;
+        }
+        return $env['send']($slot,$command);
+    };
+    $result=sync_dispatch(['operation'=>'patch','server'=>$server,'uuid'=>$uuid,'fields'=>['customField1'=>'7u 25m']],$timestampEnv);
+    check($result['fields']['customField1']==='7u 25m');
+    check($fixture[$timestampKey]===2);
+    // Real changes still fail; the timestamp exception must stay narrow.
+    foreach (['userRights','customField2','customField1'] as $changedKey) {
+        $badEnv=$timestampEnv;
+        $badEnv['send']=function($slot,$command) use($timestampEnv,&$fixture,$changedKey) {
+            $reply=$timestampEnv['send']($slot,$command);
+            if (strpos($command,'/jdev/sps/addoredituser/')===0) $fixture[$changedKey]=$changedKey==='userRights'?0:'unexpected change';
+            return $reply;
+        };
+        fails('verification',function() use($badEnv,$server,$uuid){sync_dispatch(['operation'=>'patch','server'=>$server,'uuid'=>$uuid,'fields'=>['customField1'=>'7u 25m']],$badEnv);});
+        $fixture=$original;unset($fixture['lastedit']);$fixture[$timestampKey]=1;
+    }
+}
 echo 'Host adapter: '.$count." assertions passed; no network used.\n";
