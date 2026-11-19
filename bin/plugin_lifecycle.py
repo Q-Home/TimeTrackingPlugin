@@ -184,7 +184,7 @@ def main():
                 try:
                     subprocess.run([sys.executable,str(host_installer),args.home,args.folder],check=True)
                 except (OSError, subprocess.CalledProcessError):
-                    print('<WARNING> Loxone host adapter unavailable. Timekeeping can run; synchronization remains unavailable until host setup is repaired.')
+                    print('<WARNING> Loxone host adapter or minute scheduler unavailable. Timekeeping can run; synchronization remains unavailable until host setup is repaired.')
             deploy(p['bin'],args.version)
         return 0
     except Exception as exc:

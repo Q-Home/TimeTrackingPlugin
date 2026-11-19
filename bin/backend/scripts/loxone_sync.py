@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """One externally scheduled sweep. No scheduler runs in a Gunicorn worker."""
 import os
+import json
 from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
@@ -13,7 +14,8 @@ from app.loxone_sync.bridge import SyncError
 def main():
     try:
         db=MongoClient(os.environ['MONGO_URI'],serverSelectionTimeoutMS=5000).get_default_database()
-        SyncService(db,HRService(db)).run()
+        result=SyncService(db,HRService(db)).run()
+        print(json.dumps(result,sort_keys=True))
         return 0
     except SyncError:
         # Specific sanitized errors are kept per employee in the database.
