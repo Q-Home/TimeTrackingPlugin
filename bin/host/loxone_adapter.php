@@ -209,7 +209,8 @@ function sync_dispatch($request, $environment) {
     // Detect and stop on unexpected server behavior; do not attempt a dangerous
     // full-user rollback that could undo a concurrent administrator's changes.
     foreach ($before as $key=>$value) {
-        if ($key==='lastedit' || array_key_exists($key,$fields)) continue;
+        // Firmware uses lastEdit; retain the legacy lowercase spelling too.
+        if (in_array($key,['lastedit','lastEdit'],true) || array_key_exists($key,$fields)) continue;
         if (!array_key_exists($key,$after) || $after[$key]!==$value) sync_fail('verification');
     }
     return $safeAfter;
