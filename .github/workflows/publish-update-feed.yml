@@ -1,0 +1,40 @@
+name: Publish LoxBerry release feed
+on:
+  release:
+    types: [published]
+permissions:
+  contents: write
+concurrency:
+  group: loxberry-stable-release-feed
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: ${{ !github.event.release.prerelease && !github.event.release.draft }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate release and publish feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          feed_dir="$RUNNER_TEMP/loxberry-update-feed"
+          if git fetch origin refs/heads/updates; then
+            git worktree add -B updates "$feed_dir" FETCH_HEAD
+          else
+            # An empty branch on the first published release.
+            git worktree add --detach "$feed_dir" HEAD
+            git -C "$feed_dir" switch --orphan updates
+          fi
+          python tools/release_feed.py --event "$GITHUB_EVENT_PATH" --source . --previous "$feed_dir/release.cfg" --output "$feed_dir/release.cfg"
+          git -C "$feed_dir" config user.name 'Q-Home'
+          git -C "$feed_dir" config user.email 'info@q-home.be'
+          git -C "$feed_dir" add release.cfg
+          if ! git -C "$feed_dir" diff --cached --quiet; then
+            git -C "$feed_dir" commit -m 'Update stable LoxBerry release feed'
+            git -C "$feed_dir" push origin HEAD:refs/heads/updates
+          fi

@@ -39,3 +39,7 @@ Zie [versie 1.2.6: lege dagen aanvullen](docs/CORRECT_EMPTY_DAYS.md) voor het to
 Zie [versie 1.3.0: eenvoudige tijdregistratie en automatische Loxone-koppeling](docs/SIMPLE_TIME_AND_AUTOMATIC_SYNC.md) voor de nieuwe standaardwerking.
 
 Zie [versie 1.3.1: synchronisatietaak herstellen](docs/SYNC_SCHEDULER_REPAIR.md) voor installatie van de achtergrondtaak en de nieuwe uitvoeringsdiagnose.
+
+## Q-Home en automatische releases
+
+Vanaf versie 1.3.4 is de uitgever Q-Home. Bestaande installaties hebben een eenmalige identiteitsomzetting nodig **vóór** installatie van de nieuwe ZIP. Zie [omzetting en automatische updates](docs/QHOME_RELEASE_UPDATES.md).
