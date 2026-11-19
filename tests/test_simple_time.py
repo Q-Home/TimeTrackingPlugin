@@ -45,7 +45,7 @@ class SimpleTimeTests(unittest.TestCase):
             self.db.badge_logs.insert_one({'employee_id':self.uid,'username':'synthetic.employee','user_id':UUID,
                 'action':action,'timestamp':on+'T'+time+'Z',**extra})
     def configure(self,enabled=True):
-        self.sync.save({'revision':self.sync.config()['revision'],'server':SERVER,'enabled':enabled,'interval':300,
+        self.sync.save({'revision':self.sync.config()['revision'],'server':SERVER,'enabled':enabled,'interval':600,
             'mapping':{f:'today' if i==0 else 'none' for i,f in enumerate(FIELDS)},'owned_fields':['customField1'],
             'reason':'Synthetic configuration'},'synthetic.admin')
     def run_sync(self):
@@ -103,7 +103,7 @@ class SimpleTimeTests(unittest.TestCase):
     def test_numeric_id_uses_server_resolution_and_is_rechecked(self):
         self.db.users.update_one({'_id':ObjectId(self.uid)},{'$set':{'user_id':'1234'}})
         self.configure();self.run_sync();self.assertEqual(self.bridge.resolutions,['1234'])
-        with patch('app.loxone_sync.service.clock',return_value=NOW+timedelta(minutes=6)):self.sync.run(NOW+timedelta(minutes=6))
+        with patch('app.loxone_sync.service.clock',return_value=NOW+timedelta(minutes=10)):self.sync.run(NOW+timedelta(minutes=10))
         self.assertEqual(self.bridge.resolutions,['1234','1234'])
     def test_id_reassignment_never_redirects_an_existing_binding(self):
         self.db.users.update_one({'_id':ObjectId(self.uid)},{'$set':{'user_id':'1234'}})
@@ -169,7 +169,7 @@ class SimpleTimeTests(unittest.TestCase):
             self.assertEqual(response.status_code,201,response.json)
         uid=str(db.users.find_one({'user_id':UUID})['_id'])
         service=app.extensions['loxone_sync'];service.bridge=IdentityBridge()
-        service.save({'revision':service.config()['revision'],'server':SERVER,'enabled':True,'interval':300,'mapping':{f:'month' if i==0 else 'none' for i,f in enumerate(FIELDS)},'owned_fields':['customField1'],'reason':'Synthetic delivery'},'synthetic.admin')
+        service.save({'revision':service.config()['revision'],'server':SERVER,'enabled':True,'interval':600,'mapping':{f:'month' if i==0 else 'none' for i,f in enumerate(FIELDS)},'owned_fields':['customField1'],'reason':'Synthetic delivery'},'synthetic.admin')
         with patch('app.loxone_sync.service.clock',return_value=NOW):result=service.run(NOW)
         self.assertEqual(result['writes'],1);self.assertEqual(service.bridge.fields['customField1'],'8u 00m')
         self.assertEqual(db.hr_state.find_one() ['approvals'],[])
