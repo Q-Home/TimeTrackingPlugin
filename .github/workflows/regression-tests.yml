@@ -32,3 +32,12 @@ jobs:
           for file in login app-shell branding settings dashboard get-timesheetdata get-badges get-users edit_user adduser logs datahandler custom hr loxone-sync account; do
             node --check "bin/Webapp/js/$file.js"
           done
+  release:
+    needs: backend
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'Q-Home/TimeTrackingPlugin' }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/publish-update-feed.yml
+    with:
+      source_sha: ${{ github.sha }}
+      auto_release: true

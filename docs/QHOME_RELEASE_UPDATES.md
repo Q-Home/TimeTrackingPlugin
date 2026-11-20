@@ -19,11 +19,11 @@ Deze omzetting hoeft maar één keer. Een nieuwe Qbox kan de Q-Home-ZIP direct i
 
 De oude configuratie bevatte lege GitHub-voorbeeldadressen. De nieuwe configuratie gebruikt de native LoxBerry-updater met een stabiele feed op de branch `updates`.
 
-Na het samenvoegen van deze wijziging publiceert de beheerder een normale GitHub-release met een tag die overeenkomt met `PLUGIN.VERSION`, bijvoorbeeld `v1.3.4`. GitHub Actions controleert de tag, pluginversie en Q-Home-identiteit. Daarna schrijft de workflow `release.cfg` op `updates`, met het ZIP-archief van precies die tag. Op de eerste release wordt deze branch automatisch aangemaakt. Een oudere release mag de feed niet terugzetten.
+Vanaf versie 1.3.8 start het samenvoegen naar main automatisch de regressiecontroles en vervolgens de releasepublicatie plus de updatefeed. Een vrij versienummer wordt gebruikt; waar nodig wordt het patchnummer automatisch verhoogd. Een handmatige GitHub-release is niet meer nodig. Zie [automatische main-releases](AUTOMATIC_MAIN_RELEASES.md) voor nummering, herhaalbaarheid en foutafhandeling.
 
 LoxBerry haalt de feed op tijdens zijn eigen periodieke updatecontrole en installeert nieuwere releases wanneer **Releases** geselecteerd is. Dat gebeurt niet onmiddellijk op het publicatiemoment. Een commit op main, een losse ZIP, een conceptrelease of prerelease wordt niet automatisch verspreid. Beide updatekanalen verwijzen bewust naar dezelfde stabiele feed.
 
-De feed bestaat pas nadat de eerste stabiele Q-Home-release met deze workflow is gepubliceerd. Deze codewijziging publiceert zelf geen release en installeert niets op een Qbox. Als de workflow geen schrijfrechten heeft op `updates`, moet de repositorybeheerder die branch beschikbaar maken voor de workflow; het taaklog meldt dit. Bestaande lokale configuratie blijft via de bestaande ZIP-installatieprocedure bewaard.
+De feed bestaat pas na de eerste geslaagde automatische publicatie. Het samenvoegen van de nieuwe workflow naar main start die keten; het openen van een pull request publiceert niets. Als de workflow geen schrijfrechten heeft op `updates`, moet de repositorybeheerder die branch beschikbaar maken voor de workflow; het taaklog meldt dit. Bestaande lokale configuratie blijft via de bestaande ZIP-installatieprocedure bewaard.
 
 ## Validatie
 
