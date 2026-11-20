@@ -4,7 +4,7 @@
   const $=id=>document.getElementById(id);
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fields=Array.from({length:5},(_,i)=>'customField'+(i+1));
-  const metrics={none:'Niet gebruiken',today:'Vandaag gewerkt',week:'Deze week gewerkt',month:'Deze maand gewerkt',balance:'Urensaldo (maand tot vandaag)',status:'Registratiestatus',updated:'Laatst bijgewerkt'};
+  const metrics={none:'Niet gebruiken',today:'Vandaag gewerkt',week:'Deze week gewerkt',month:'Deze maand gewerkt',balance:'Urensaldo (maand tot vandaag)',status:'Registratiestatus (numerieke code)',updated:'Laatst bijgewerkt (Unix-tijd)'};
   const state={config:null,probe:null,rows:[],users:[],employee:null};
   const when=v=>v?new Date(v).toLocaleString('nl-BE'):'Nog niet';
   function notice(message,error=false){$('feedback').innerHTML=`<div class="notice ${error?'error':''}">${esc(message)}</div>`;}
@@ -36,7 +36,7 @@
       <div class="sync-meta"><span class="badge ${row.binding?'neutral':'warning'}">${esc(row.link_status)}</span><span>Loxone: ${esc(row.remote?.name||row.binding?.name||'Niet gekoppeld')}</span></div>${row.binding?`<code>UUID ${esc(row.binding.uuid)} · Miniserver ${esc(row.binding.server.serial)}</code>`:''}
       <p class="muted">Laatste geslaagde controle: ${esc(when(row.last_success))} · Inhoudelijk bijgewerkt: ${esc(when(row.last_content_update))}</p>
       ${row.last_error?`<div class="notice error">${esc(row.last_error)}${row.retry_at?` Volgende poging vanaf ${esc(when(row.retry_at))}.`:''}</div>`:''}
-      <div class="sync-values">${['today','week','month','balance','status'].map(m=>`<div class="sync-value"><small>${metrics[m]}</small><strong>${esc(row.values[m]||'Niet beschikbaar')}</strong></div>`).join('')}</div>
+      <div class="sync-values">${['today','week','month','balance','status'].map(m=>`<div class="sync-value"><small>${metrics[m]}</small><strong>${esc(row.values[m]||'Niet beschikbaar')}</strong><small>Naar Loxone: ${esc(row.loxone_values[m]??'0')}${m==='status'?'':' uur'}</small></div>`).join('')}</div>
       ${row.remote?`<div class="sync-current"><strong>Bestaande waarden in Loxone</strong><br>${fields.map(f=>`${esc(state.probe?.field_names[f]||f)}: ${esc(row.remote.fields[f]||'(leeg)')}`).join(' · ')}</div>`:'<p class="muted">Dry-run leest de bestaande custom fields; er wordt niets geschreven.</p>'}
       ${row.changes?`<p><strong>Voorgenomen wijzigingen:</strong> ${Object.entries(row.changes).map(([f,v])=>`${esc(state.probe?.field_names[f]||f)} → ${esc(v)}`).join(' · ')||'Geen inhoudelijke wijziging nodig.'}</p>`:''}
       ${Object.keys(row.issues).length?`<details><summary>${row.simple_mode?'Toelichting bij de totalen':'Waarom zijn gegevens niet beschikbaar?'}</summary><ul>${Object.entries(row.issues).map(([m,issues])=>`<li>${metrics[m]}: ${esc(issues.join(' '))}</li>`).join('')}</ul></details>`:''}</article>`).join(''):'<div class="empty">Medewerkers verschijnen automatisch bij hun eerste Loxone-registratie.</div>';
