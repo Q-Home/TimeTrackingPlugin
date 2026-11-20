@@ -76,14 +76,31 @@ class SyncService:
             return 'uuid:'+text.replace('-','').lower()
         return 'id:'+text
 
-    def source_identity(self,user):
+    def source_identities(self,user):
         values=[user['user_id']] if user.get('user_id') not in (None,'') else []
-        # Legacy manually created staff may have the ID only on their badge events.
         values += [e['user_id'] for e in self.hr.events(str(user['_id'])) if e.get('user_id') not in (None,'')]
+        unique={}
+        for value in values:unique.setdefault(self.identity_key(value),str(value).strip())
+        return list(unique.values())
+
+    def source_identity(self,user):
+        values=self.source_identities(user)
         if not values:return None
-        keys={self.identity_key(value) for value in values}
-        if len(keys)!=1:raise SyncError('identity_conflict')
-        return str(values[0]).strip()
+        if len(values)>1:
+            binding=self.config()['bindings'].get(str(user['_id']),{})
+            if binding.get('source_keys')!=sorted(self.identity_key(v) for v in values):raise SyncError('identity_source_conflict')
+        return values[0]
+
+    def resolve_sources(self,server,values):
+        resolved=[]
+        for source in values:
+            remote=self.bridge.call('resolve',server,userid=source)
+            if not isinstance(remote,dict) or not isinstance(remote.get('name'),str) or not remote.get('uuid'):raise SyncError('identity_conflict')
+            if not self.identity_key(remote['uuid']).startswith('uuid:') or self.identity_key(remote.get('source_id',''))!=self.identity_key(source):raise SyncError('identity_conflict')
+            if self.identity_key(source).startswith('uuid:') and self.identity_key(source)!=self.identity_key(remote['uuid']):raise SyncError('identity_source_conflict')
+            resolved.append(remote)
+        if len({self.identity_key(v['uuid']) for v in resolved})!=1:raise SyncError('identity_source_conflict')
+        return resolved[0]
 
     def automatic_links(self,config,owner):
         if not config['auto_link'] or not config['server']:return config,{}
@@ -92,41 +109,41 @@ class SyncService:
         for user in users:
             uid=str(user['_id'])
             try:
-                source=self.source_identity(user)
-                if source:
-                    sources[uid]=source;groups.setdefault(self.identity_key(source),[]).append(uid)
+                values=self.source_identities(user)
+                if values:
+                    sources[uid]=values
+                    for source in values:groups.setdefault(self.identity_key(source),[]).append(uid)
             except SyncError as exc:errors[uid]=exc.code
         for matches in groups.values():
             if len(matches)>1:
-                errors.update({uid:'identity_conflict' for uid in matches})
+                errors.update({uid:'identity_duplicate' for uid in matches})
         new=deepcopy(config);changes=[]
-        for uid,source in sources.items():
+        for uid,values in sources.items():
+            source=values[0]
             if uid in errors:continue
             previous=config['bindings'].get(uid)
             # UUIDs are stable. Numeric/text userid mappings are re-resolved each
             # sweep, so reassigning an ID cannot silently redirect someone’s hours.
-            if previous and previous.get('matched_by')=='loxone_id' and self.identity_key(source).startswith('uuid:') and self.identity_key(previous['source_id'])==self.identity_key(source):
+            if len(values)==1 and previous and not previous.get('source_keys') and previous.get('matched_by')=='loxone_id' and self.identity_key(source).startswith('uuid:') and self.identity_key(previous['source_id'])==self.identity_key(source):
                 self.db.loxone_sync_meta.update_one({'_id':'identity:'+uid},{'$set':{'source_id':source,'error_code':None,'at':clock()}},upsert=True)
                 continue
             try:
                 self.renew(owner)
-                remote=self.bridge.call('resolve',config['server'],userid=source)
-                if not isinstance(remote,dict) or not isinstance(remote.get('name'),str) or not remote.get('uuid'):raise SyncError('identity_conflict')
-                if self.identity_key(remote['uuid']).split(':',1)[0]!='uuid' or self.identity_key(remote.get('source_id',''))!=self.identity_key(source):raise SyncError('identity_conflict')
-                if self.identity_key(source).startswith('uuid:') and self.identity_key(source)!=self.identity_key(remote['uuid']):raise SyncError('identity_conflict')
-                if previous and self.identity_key(previous['uuid'])!=self.identity_key(remote['uuid']):raise SyncError('identity_conflict')
+                remote=self.resolve_sources(config['server'],values)
+                if previous and self.identity_key(previous['uuid'])!=self.identity_key(remote['uuid']):raise SyncError('identity_binding_conflict')
                 collisions=[other for other,binding in new['bindings'].items() if other!=uid and self.identity_key(binding['uuid'])==self.identity_key(remote['uuid'])]
                 if collisions:
-                    errors.update({other:'identity_conflict' for other in collisions})
-                    raise SyncError('identity_conflict')
+                    errors.update({other:'identity_duplicate' for other in collisions})
+                    raise SyncError('identity_duplicate')
                 binding={'uuid':remote['uuid'],'name':remote['name'],'lookup_name':'','server':config['server'],
                          'matched_by':'loxone_id','source_id':source}
+                if len(values)>1:binding['source_keys']=sorted(self.identity_key(v) for v in values)
                 if binding!=previous:
                     new['bindings'][uid]=binding;changes.append((uid,previous,binding))
                 self.db.loxone_sync_meta.update_one({'_id':'identity:'+uid},{'$set':{'source_id':source,'error_code':None,'at':clock()}},upsert=True)
             except SyncError as exc:errors[uid]=exc.code
         for uid,code in errors.items():
-            self.db.loxone_sync_meta.update_one({'_id':'identity:'+uid},{'$set':{'source_id':sources.get(uid),'error_code':code,'at':clock()}},upsert=True)
+            self.db.loxone_sync_meta.update_one({'_id':'identity:'+uid},{'$set':{'source_id':(sources.get(uid) or [None])[0],'error_code':code,'at':clock()}},upsert=True)
         if changes:
             self.renew(owner);new['revision']+=1
             self.db.loxone_sync_config.replace_one({'_id':'settings'},new,upsert=True)
@@ -225,6 +242,28 @@ class SyncService:
             self.request_sync(actor)
             return new
 
+    def recheck(self,data,actor):
+        with self.lock() as owner:
+            config=self.config()
+            if data.get('revision')!=config['revision']:raise HRError('Instellingen gewijzigd. Vernieuw eerst.',409)
+            uid=data['employee_id'];employee=self.hr.employee(uid)
+            if employee.get('unresolved'):raise HRError('Los eerst de historische medewerkeridentiteit op.')
+            reason=self.hr.reason(data);previous=config['bindings'].get(uid)
+            if not previous or previous['server']!=config['server']:raise SyncError('identity_changed')
+            config,errors=self.automatic_links(config,owner)
+            if uid in errors:raise SyncError(errors[uid])
+            binding=config['bindings'][uid]
+            if self.identity_key(binding['uuid'])!=self.identity_key(previous['uuid']):raise SyncError('identity_binding_conflict')
+            if any(other!=uid and self.identity_key(b['uuid'])==self.identity_key(binding['uuid']) for other,b in config['bindings'].items()):raise SyncError('identity_duplicate')
+            actual=self.bridge.call('user',config['server'],uuid=binding['uuid'])
+            if self.identity_key(actual['uuid'])!=self.identity_key(binding['uuid']):raise SyncError('identity_binding_conflict')
+            saved=self.db.loxone_sync_status.find_one({'_id':uid}) or {}
+            self.db.loxone_sync_status.update_one({'_id':uid},{'$set':{'quarantined':False,'last_error':None,'error_code':None,'retry_at':None,'failures':0,'rechecked_at':clock()}},upsert=True)
+            self.audit(actor,'binding_rechecked',{'uuid':previous['uuid'],'error_code':saved.get('error_code'),'quarantined':saved.get('quarantined',False)},
+                {'uuid':binding['uuid'],'quarantined':False},reason)
+            self.request_sync(actor)
+            return {'verified':True,'message':'Dezelfde UUID is gecontroleerd. Hervatting is ingepland; er zijn tijdens de controle geen velden geschreven.'}
+
     def totals(self,uid,now=None):
         now=instant(now or clock());state=self.hr.state()
         simple=bool(state.get('simple_mode'))
@@ -262,14 +301,14 @@ class SyncService:
             binding=config['bindings'].get(employee['id']);saved=self.db.loxone_sync_status.find_one({'_id':employee['id']}) or {}
             row={'employee':{k:employee[k] for k in ('id','username','name')},'binding':binding,
                 'link_status':'Niet gekoppeld','last_success':saved.get('last_success'),
-                'last_content_update':saved.get('last_content_update'),'last_error':saved.get('last_error'),
+                'last_content_update':saved.get('last_content_update'),'last_error':MESSAGES.get(saved.get('error_code'),saved.get('last_error')),'quarantined':bool(saved.get('quarantined')),
                 'retry_at':saved.get('retry_at'),**self.totals(employee['id'],now)}
             identity=self.db.loxone_sync_meta.find_one({'_id':'identity:'+employee['id']}) or {}
             row['automatic_link']=config['auto_link']
             try:
                 source=self.source_identity(user)
-            except SyncError:
-                source=None;row['last_error']=MESSAGES['identity_conflict']
+            except SyncError as exc:
+                source=None;row['last_error']=MESSAGES.get(exc.code,MESSAGES['identity_conflict'])
             row['source_id']=source
             if identity.get('error_code'):row['last_error']=MESSAGES.get(identity['error_code'],MESSAGES['identity_conflict'])
             if config['auto_link'] and not binding:row['link_status']='Wordt automatisch gekoppeld via Loxone-ID' if source else 'Geen Loxone-ID ontvangen'
@@ -286,6 +325,7 @@ class SyncService:
                         row['desired'].update({f:stamp for f,m in config['mapping'].items() if m=='updated'})
                         row['changes']={f:v for f,v in row['desired'].items() if actual['fields'].get(f)!=v}
                     except SyncError as exc:row['link_status']=MESSAGES[exc.code];row['last_error']=MESSAGES[exc.code]
+            if row['quarantined']:row['link_status']='Gekoppeld; updates gepauzeerd'
             rows.append(row)
         return {'config':config,'rows':rows,'dry_run':True,'pending':self.db.loxone_sync_meta.find_one({'_id':'queue'}) or {},
                 'run':self.db.loxone_sync_meta.find_one({'_id':'run'}) or {},
@@ -373,7 +413,7 @@ class SyncService:
                     code=exc.code if isinstance(exc,SyncError) else 'response'
                     failures=saved.get('failures',0)+1
                     self.db.loxone_sync_status.update_one({'_id':uid},{'$set':{'last_error':MESSAGES.get(code,MESSAGES['response']),
-                        'error_code':code,'failures':failures,'quarantined':code=='verification',
+                        'error_code':code,'failures':failures,'quarantined':code in {'verification','verification_fields','verification_attributes'},
                         'retry_at':now+timedelta(seconds=min(3600,60*2**min(failures-1,6)))}},upsert=True)
                     failed+=1
             self.db.loxone_sync_meta.replace_one({'_id':'run'},{'_id':'run','at':now,

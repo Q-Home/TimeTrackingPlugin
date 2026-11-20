@@ -205,13 +205,13 @@ function sync_dispatch($request, $environment) {
     if (!is_array($reply) || ($reply['uuid'] ?? null)!==$uuid) sync_fail('response');
     $after=$send('/jdev/sps/getuser/'.$uuid);
     $safeAfter=sync_user($after,$uuid);
-    foreach ($fields as $key=>$value) if ($safeAfter['fields'][$key]!==$value) sync_fail('verification');
+    foreach ($fields as $key=>$value) if ($safeAfter['fields'][$key]!==$value) sync_fail('verification_fields');
     // Detect and stop on unexpected server behavior; do not attempt a dangerous
     // full-user rollback that could undo a concurrent administrator's changes.
     foreach ($before as $key=>$value) {
         // Firmware uses lastEdit; retain the legacy lowercase spelling too.
         if (in_array($key,['lastedit','lastEdit'],true) || array_key_exists($key,$fields)) continue;
-        if (!array_key_exists($key,$after) || $after[$key]!==$value) sync_fail('verification');
+        if (!array_key_exists($key,$after) || $after[$key]!==$value) sync_fail('verification_attributes');
     }
     return $safeAfter;
 }
@@ -235,7 +235,7 @@ function sync_main() {
         $data=sync_dispatch($request,$environment);
         echo json_encode(['ok'=>true,'data'=>$data,'warnings'=>$warnings],JSON_THROW_ON_ERROR)."\n";
     } catch (Throwable $e) {
-        $codes=['configuration','tls','authentication','permissions','network','unsupported','identity_changed','identity_not_found','user_missing','response','response_api_info','response_field_names','response_user_list','verification','invalid'];
+        $codes=['configuration','tls','authentication','permissions','network','unsupported','identity_changed','identity_not_found','user_missing','response','response_api_info','response_field_names','response_user_list','verification','verification_fields','verification_attributes','invalid'];
         $code=in_array($e->getMessage(),$codes,true)?$e->getMessage():'configuration';
         echo json_encode(['ok'=>false,'error'=>$code,'warnings'=>$warnings])."\n";
     }

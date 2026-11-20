@@ -224,7 +224,7 @@ class AuthorizationTests(unittest.TestCase):
         self.app.extensions['loxone_sync'].bridge=FakeBridge()
     def test_every_endpoint_enforces_technical_authorization(self):
         endpoints=[('get','config'),('get','miniservers'),('get','users'),('get','diagnostics'),
-            ('post','config'),('post','test'),('post','links'),('post','preview'),('post','run')]
+            ('post','config'),('post','test'),('post','links'),('post','recheck'),('post','preview'),('post','run')]
         for role in ('user','hr'):
             for method,path in endpoints:
                 response=getattr(self.client,method)('/api/v1/loxone-sync/'+path,headers={'Authorization':'Bearer '+self.tokens[role]},json={})
