@@ -180,12 +180,17 @@ def main():
         else:
             p = restore(args.home,args.folder,args.archive)
             host_installer = p['bin']/'host/install_adapter.py'
+            host_ready=False
             if host_installer.is_file():
                 try:
                     subprocess.run([sys.executable,str(host_installer),args.home,args.folder],check=True)
+                    host_ready=True
                 except (OSError, subprocess.CalledProcessError):
-                    print('<WARNING> Loxone host adapter or minute scheduler unavailable. Timekeeping can run; synchronization remains unavailable until host setup is repaired.')
+                    print('<WARNING> Host scheduling setup failed. Automatic STOP and Loxone task activation must be checked in the installation log.')
             deploy(p['bin'],args.version)
+            if host_ready:
+                subprocess.run(['systemctl','start','--no-block','timetracking-auto-close.service'],check=True)
+                print('<OK> Automatic STOP catch-up requested for existing forgotten sessions.')
         return 0
     except Exception as exc:
         # Command exceptions name the failed command, not captured secret output.

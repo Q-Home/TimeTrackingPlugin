@@ -8,6 +8,80 @@ import sys
 
 CRON_NAME='timetrackingplugin-loxone-sync'
 CRON_MARKER='# Managed by TimeTrackingPlugin: Loxone synchronization'
+AUTO_CLOSE_MARKER='# Managed by TimeTrackingPlugin: automatic STOP'
+
+
+def auto_close_units(home,folder):
+    cron_content(home,folder)  # Validate every interpolated shell path.
+    logdir=PurePosixPath(str(home))/'log/plugins'/folder
+    service=f'''{AUTO_CLOSE_MARKER}
+[Unit]
+Description=TimeTracking forgotten-session automatic STOP
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=loxberry
+Group=loxberry
+TimeoutStartSec=300
+ExecStart=/bin/sh -c 'mkdir -p {logdir} && exec /usr/bin/docker exec backend python /app/scripts/auto_stop_missing_badges.py --completed-days --catch-up-all >> {logdir}/auto_stop_missing_badges.log 2>&1'
+'''
+    timer=f'''{AUTO_CLOSE_MARKER}
+[Unit]
+Description=TimeTracking nightly automatic STOP with catch-up
+
+[Timer]
+OnCalendar=*-*-* 00:05:00
+OnCalendar=*-*-* *:00/10:00
+OnBootSec=2min
+Persistent=true
+Unit=timetracking-auto-close.service
+
+[Install]
+WantedBy=timers.target
+'''
+    return {'timetracking-auto-close.service':service,'timetracking-auto-close.timer':timer}
+
+
+def write_auto_close(home,folder,systemd_dir=Path('/etc/systemd/system')):
+    units=auto_close_units(home,folder)
+    systemd_dir=Path(systemd_dir)
+    # Validate all reserved targets before changing anything.
+    for name in units:
+        target=systemd_dir/name
+        if target.exists() and AUTO_CLOSE_MARKER not in target.read_text(encoding='utf-8'):
+            raise ValueError('Automatic STOP unit has custom content; preserve and inspect it')
+    systemd_dir.mkdir(parents=True,exist_ok=True)
+    for name,content in units.items():
+        target=systemd_dir/name;temporary=target.with_name('.'+name+'.tmp')
+        temporary.write_text(content,encoding='utf-8');temporary.chmod(0o644);temporary.replace(target)
+
+
+def retire_legacy_auto_close(home,folder):
+    cron_content(home,folder)
+    legacy=Path(home)/'system/cron/cron.d'/folder
+    if not legacy.is_file():return
+    original=legacy.read_text(encoding='utf-8')
+    lines=[]
+    for line in original.splitlines(keepends=True):
+        if not line.lstrip().startswith('#') and re.search(r'\bdocker exec backend python /app/scripts/auto_stop_missing_badges\.py(?:\s|$)',line):
+            lines.append('# Replaced by timetracking-auto-close.timer\n')
+        else:lines.append(line)
+    replacement=''.join(lines)
+    if replacement!=original:
+        backup=legacy.with_name(legacy.name+'.before-auto-close-timer')
+        if not backup.exists():backup.write_text(original,encoding='utf-8')
+        legacy.write_text(replacement,encoding='utf-8')
+
+
+def install_auto_close(home,folder):
+    write_auto_close(home,folder)
+    subprocess.run(['systemctl','daemon-reload'],check=True)
+    subprocess.run(['systemctl','enable','--now','timetracking-auto-close.timer'],check=True)
+    # Disable only our old packaged command after the replacement is active.
+    retire_legacy_auto_close(home,folder)
+    print('<OK> Automatic STOP timer enabled: nightly, boot and ten-minute catch-up.')
 
 def cron_content(home,folder):
     if not re.fullmatch(r'[A-Za-z0-9_/-]+',str(home)) or not re.fullmatch(r'[A-Za-z0-9_-]+',folder):
@@ -73,6 +147,8 @@ WantedBy=multi-user.target
 
 def install(home,folder):
     if os.name!='posix' or os.geteuid()!=0:raise ValueError('Root host installation required')
+    # Independent of the Miniserver bridge and its successful startup.
+    install_auto_close(home,folder)
     Path('/etc/systemd/system/timetracking-loxone.service').write_text(unit(home,folder),encoding='utf-8')
     subprocess.run(['systemctl','daemon-reload'],check=True)
     subprocess.run(['systemctl','enable','timetracking-loxone.service'],check=True,stdout=subprocess.DEVNULL)

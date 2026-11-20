@@ -163,14 +163,22 @@ def build_auto_stop(start_log: dict, stop_timestamp: datetime, run_time: datetim
 
 
 def run(collection, target_day: datetime, work_hours: int, lookback_days: int, dry_run: bool, hr_service=None,
-        completed_days=False, timezone_name='Europe/Brussels', run_time=None, diagnostics=None) -> int:
+        completed_days=False, timezone_name='Europe/Brussels', run_time=None, diagnostics=None, catch_up_all=False) -> int:
     run_time = to_utc_naive(run_time or datetime.now(timezone.utc))
     inserted = 0
 
-    for day_offset in range(max(lookback_days, 1) - 1, -1, -1):
+    if catch_up_all and completed_days and hr_service:
+        from app.hr.engine import instant
+        dates=sorted({instant(event['timestamp']).astimezone(ZoneInfo(timezone_name)).date()
+                      for _,event in forgotten_starts(hr_service,run_time,timezone_name,diagnostics)
+                      if instant(event['timestamp']).astimezone(ZoneInfo(timezone_name)).date()<=target_day.date()})
+        targets=[datetime.combine(on,datetime.min.time()) for on in dates]
+    else:
+        targets=[target_day-timedelta(days=offset) for offset in range(max(lookback_days,1)-1,-1,-1)]
+    for on in targets:
         inserted += run_day(
             collection=collection,
-            target_day=target_day - timedelta(days=day_offset),
+            target_day=on,
             work_hours=work_hours,
             run_time=run_time,
             dry_run=dry_run,
@@ -183,12 +191,12 @@ def run(collection, target_day: datetime, work_hours: int, lookback_days: int, d
     return inserted
 
 
-def nightly_candidates(hr_service, target_day, run_time, timezone_name, diagnostics=None):
-    """Use effective chronological events; a real overnight STOP wins over auto-close."""
+def forgotten_starts(hr_service,run_time,timezone_name,diagnostics=None):
+    """Effective sessions, retaining yesterday when a new daily START arrives."""
     from app.hr.engine import instant
-    candidates=[]
+    result=[];zone=ZoneInfo(timezone_name)
     for employee in hr_service.employees():
-        opened=None
+        opened=None;forgotten=[]
         try:events=sorted(hr_service.events(employee['id']),key=lambda e:instant(e['timestamp']))
         except (ValueError,TypeError,KeyError):
             if diagnostics is not None:diagnostics['invalid_source']=diagnostics.get('invalid_source',0)+1
@@ -196,11 +204,25 @@ def nightly_candidates(hr_service, target_day, run_time, timezone_name, diagnost
         for event in events:
             if instant(event['timestamp'])>instant(run_time):continue
             action=normalize_action(event.get('action'))
-            if action=='START' and opened is None:opened=event
+            if action=='START':
+                if event.get('_source')=='automatic' or event.get('raw_data',{}).get('auto_stop'):continue
+                if opened is not None and instant(event['timestamp']).astimezone(zone).date()>instant(opened['timestamp']).astimezone(zone).date():
+                    forgotten.append({**opened,'_next_session_start':event['timestamp']});opened=None
+                if opened is None:opened=event
             elif action=='STOP':opened=None
-        if opened and instant(opened['timestamp']).astimezone(ZoneInfo(timezone_name)).date()==target_day.date():
-            value={**opened,'username':employee['username'],'employee_id':employee['id'],
-                   'timestamp':to_utc_naive(instant(opened['timestamp']))}
+        if opened is not None:forgotten.append(opened)
+        for event in forgotten:
+            result.append((employee,event))
+    return result
+
+
+def nightly_candidates(hr_service,target_day,run_time,timezone_name,diagnostics=None):
+    from app.hr.engine import instant
+    candidates=[]
+    for employee,event in forgotten_starts(hr_service,run_time,timezone_name,diagnostics):
+        if instant(event['timestamp']).astimezone(ZoneInfo(timezone_name)).date()==target_day.date():
+            value={**event,'username':employee['username'],'employee_id':employee['id'],
+                   'timestamp':to_utc_naive(instant(event['timestamp']))}
             candidates.append((('employee_id',employee['id']),value))
     return candidates
 
@@ -224,6 +246,8 @@ def run_day(collection, target_day: datetime, work_hours: int, run_time: datetim
             from app.hr.engine import policy
             rules = policy(hr_service.state(), target_day.date())
             mode = rules['auto_stop_mode']
+            if hr_service.state().get('simple_mode') and mode in {'signal','propose'}:
+                mode='apply'  # Simple timekeeping closes forgotten sessions without approval.
             if mode != 'legacy_elapsed':
                 # New rules use the complete effective stream, including overnight
                 # stops and HR overlays. Preserve the historical daily algorithm
@@ -234,7 +258,8 @@ def run_day(collection, target_day: datetime, work_hours: int, run_time: datetim
                                 if instant(e['timestamp']) > instant(start_log['timestamp'])
                                 and instant(e['timestamp']) <= instant(run_time)),
                                key=lambda e: instant(e['timestamp']))
-                if any(normalize_action(e.get('action')) == 'STOP' for e in later):
+                next_start=next((instant(e['timestamp']) for e in later if normalize_action(e.get('action'))=='START' and instant(e['timestamp']).astimezone(ZoneInfo(timezone_name)).date()>target_day.date()),None)
+                if any(normalize_action(e.get('action')) == 'STOP' and (next_start is None or instant(e['timestamp'])<next_start) for e in later):
                     continue
             if mode == 'signal':
                 count('signalled')
@@ -260,6 +285,11 @@ def run_day(collection, target_day: datetime, work_hours: int, run_time: datetim
                 hr_service.automatic_proposal(start_log, stop_timestamp, dry_run)
                 count('proposed')
                 continue
+        if start_log.get('_next_session_start'):
+            from app.hr.engine import instant
+            next_start=to_utc_naive(instant(start_log['_next_session_start']))
+            # An inferred STOP must never close the next real MQTT session.
+            stop_timestamp=min(stop_timestamp,next_start-timedelta(microseconds=1))
         if stop_timestamp > run_time:
             count('future_end')
             continue
@@ -306,6 +336,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--work-hours", type=int, default=DEFAULT_WORK_HOURS)
     parser.add_argument("--lookback-days", type=int, default=DEFAULT_LOOKBACK_DAYS)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument('--catch-up-all',action='store_true',help='Catch up every forgotten completed start day, including after downtime.')
     parser.add_argument('--completed-days',action='store_true',help='Nightly mode: inspect yesterday and preceding completed company-calendar days, using HR corrections.')
     return parser
 
@@ -316,6 +347,7 @@ def main() -> int:
     load_env_file(script_dir.parent.parent / ".env")
 
     args = build_parser().parse_args()
+    if args.catch_up_all and not args.completed_days:raise ValueError('Catch-up requires completed-days mode')
     mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/timetracking")
     client = MongoClient(mongo_uri,serverSelectionTimeoutMS=5000)
     db = client[os.environ['MONGO_DB_NAME']] if os.getenv('MONGO_DB_NAME') else client.get_default_database(default='timetracking')
@@ -333,7 +365,7 @@ def main() -> int:
     print(f'{run_time.isoformat()} Auto-close started: local={today.isoformat()} target={target_day.date()} lookback={args.lookback_days} timezone={zone} completed_days={args.completed_days}',flush=True)
     inserted = run(collection, target_day, args.work_hours, args.lookback_days, args.dry_run,
                    hr_service=hr_service,completed_days=args.completed_days,timezone_name=zone,
-                   run_time=run_time,diagnostics=diagnostics)
+                   run_time=run_time,diagnostics=diagnostics,catch_up_all=args.catch_up_all)
     print(f'{datetime.now(timezone.utc).isoformat()} Auto-close finished: inserted={inserted} counters={diagnostics}',flush=True)
     print(f"Automatic STOP badges {'would be inserted' if args.dry_run else 'inserted'}: {inserted}")
     return 0

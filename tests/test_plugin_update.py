@@ -202,4 +202,16 @@ elif args[:2]==['exec','webapp']:print(pathlib.Path(os.environ['FAKE_PLUGIN_BIN'
         self.assertNotIn('mongodb',up)
 
 
+    def test_finish_requests_auto_close_after_successful_deployment(self):
+        installed=self.bin/'host/install_adapter.py';installed.parent.mkdir();installed.touch()
+        order=[]
+        def host_call(command,**kwargs):order.append(command)
+        def applied(*args):order.append('images-applied')
+        argv=['plugin_lifecycle.py','finish','--home',str(self.home),'--folder',self.folder,'--archive',str(self.archive),'--version','1.3.6']
+        with patch.object(lifecycle.sys,'argv',argv),patch.object(lifecycle,'restore',return_value={'bin':self.bin}),patch.object(lifecycle,'deploy',side_effect=applied),patch.object(lifecycle.subprocess,'run',side_effect=host_call),redirect_stdout(io.StringIO()):
+            self.assertEqual(lifecycle.main(),0)
+        self.assertEqual(order[-2],'images-applied')
+        self.assertEqual(order[-1],['systemctl','start','--no-block','timetracking-auto-close.service'])
+
+
 if __name__=='__main__':unittest.main()

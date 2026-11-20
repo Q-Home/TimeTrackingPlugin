@@ -20,6 +20,10 @@ PSBIN=$LBPSBIN/$PDIR
 PBIN=$LBPBIN/$PDIR
 
 # your code goes here
+sudo systemctl disable --now timetracking-auto-close.timer || true
+sudo systemctl stop timetracking-auto-close.service || true
+sudo rm -f /etc/systemd/system/timetracking-auto-close.timer /etc/systemd/system/timetracking-auto-close.service
+sudo systemctl daemon-reload
 sudo rm -f /etc/cron.d/timetrackingplugin-loxone-sync
 if command -v systemctl >/dev/null 2>&1; then
     sudo systemctl disable --now timetracking-loxone.service || true
