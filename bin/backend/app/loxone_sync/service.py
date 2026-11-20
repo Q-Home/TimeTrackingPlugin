@@ -2,6 +2,7 @@
 from copy import deepcopy
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import re
 import uuid
 from zoneinfo import ZoneInfo
@@ -21,6 +22,20 @@ def clock(): return datetime.now(timezone.utc)
 def duration(seconds,signed=False):
     minutes=int(abs(seconds)//60)
     return ('−' if seconds<0 else '+' if signed else '')+f'{minutes//60}u {minutes%60:02}m'
+
+
+def decimal_hours(seconds):
+    """Numeric custom-field text: decimal hours, dot, no units or locale."""
+    try:
+        value=Decimal(str(seconds))/Decimal(3600)
+        if not value.is_finite():return '0'
+        value=value.quantize(Decimal('0.000001'),rounding=ROUND_HALF_UP)
+        return '0' if value==0 else format(value,'f').rstrip('0').rstrip('.')
+    except (InvalidOperation,ValueError,TypeError):return '0'
+
+
+def numeric_timestamp(value):
+    return str(int(instant(value).timestamp())) if value else '0'
 
 
 class SyncService:
@@ -215,7 +230,7 @@ class SyncService:
         simple=bool(state.get('simple_mode'))
         tz=ZoneInfo(policy(state,now.date())['timezone']);today=now.astimezone(tz).date()
         starts={'today':today,'week':today-timedelta(days=today.weekday()),'month':today.replace(day=1)}
-        values={};issues={};provisional={}
+        values={};issues={};provisional={};loxone_values={}
         details={}
         for metric,start in starts.items():
             result=self.hr.details(uid,start,today,state,now,str(today));details[metric]=result
@@ -225,13 +240,16 @@ class SyncService:
             if not simple and not has_source and result['summary']['expected_seconds']!=0:bad.append('Geen betrouwbare registratiebron voor deze periode.')
             provisional[metric]=result['summary']['provisional']
             values[metric]=None if bad else duration(result['summary']['work_seconds'])+(' (voorlopig)' if provisional[metric] else '')
+            loxone_values[metric]='0' if bad else decimal_hours(result['summary']['work_seconds'])
             if bad or (simple and warnings):issues[metric]=sorted(set(bad+warnings if simple else bad))
         month=details['month']; balance=month['summary']['balance_seconds']
         values['balance']=None if values['month'] is None or balance is None else duration(balance,True)+(' (voorlopig)' if month['summary']['provisional'] else '')
         if values['balance'] is None:issues['balance']=['Geen geldig rooster voor de volledige maand tot vandaag.'] if balance is None else issues.get('month',[])
+        loxone_values['balance']='0' if values['balance'] is None else decimal_hours(balance)
         last=details['today']['days'][-1]
         values['status']=('Registratie met aandachtspunt' if simple else 'Afwijking — controleren') if last['anomalies'] else {'working':'Ingeklokt (voorlopig)','on_break':'In pauze (voorlopig)'}.get(last['open_status'],'Automatisch afgesloten' if any(n['code']=='automatic_stop' for n in last.get('notes',[])) else 'Afgesloten' if last['events'] or last['periods'] else 'Geen registratie')
-        return {'values':values,'issues':issues,'simple_mode':simple,'provisional':provisional,'as_of':iso(now),
+        loxone_values['status']=('5' if last['anomalies'] else {'working':'1','on_break':'2'}.get(last['open_status'],'4' if any(n['code']=='automatic_stop' for n in last.get('notes',[])) else '3' if last['events'] or last['periods'] else '0'))
+        return {'values':values,'loxone_values':loxone_values,'issues':issues,'simple_mode':simple,'provisional':provisional,'as_of':iso(now),
             'timezone':str(tz),'balance_period':{'start':str(today.replace(day=1)),'end':str(today)},'hr_revision':state['revision']}
 
     def preview(self,now=None,remote=True):
@@ -255,7 +273,7 @@ class SyncService:
             row['source_id']=source
             if identity.get('error_code'):row['last_error']=MESSAGES.get(identity['error_code'],MESSAGES['identity_conflict'])
             if config['auto_link'] and not binding:row['link_status']='Wordt automatisch gekoppeld via Loxone-ID' if source else 'Geen Loxone-ID ontvangen'
-            row['desired']={f:row['values'].get(metric) or 'Niet beschikbaar' for f,metric in config['mapping'].items() if metric not in {'none','updated'}}
+            row['desired']={f:row['loxone_values'].get(metric,'0') for f,metric in config['mapping'].items() if metric not in {'none','updated'}}
             if binding:
                 row['link_status']='Automatisch gekoppeld via Loxone-ID' if binding.get('matched_by')=='loxone_id' else 'UUID gekoppeld (nog niet gecontroleerd)'
                 if remote:
@@ -263,6 +281,9 @@ class SyncService:
                         actual=self.bridge.call('user',config['server'],uuid=binding['uuid'])
                         row['remote']=actual
                         row['link_status']='Hernoemd; UUID behouden' if actual['name']!=binding['name'] else 'Gekoppeld'
+                        changed=any(actual['fields'].get(f)!=v for f,v in row['desired'].items())
+                        stamp=numeric_timestamp(now or clock()) if changed else numeric_timestamp(saved.get('last_content_update'))
+                        row['desired'].update({f:stamp for f,m in config['mapping'].items() if m=='updated'})
                         row['changes']={f:v for f,v in row['desired'].items() if actual['fields'].get(f)!=v}
                     except SyncError as exc:row['link_status']=MESSAGES[exc.code];row['last_error']=MESSAGES[exc.code]
             rows.append(row)
@@ -321,16 +342,18 @@ class SyncService:
                         if not current_source or self.identity_key(current_source)!=self.identity_key(binding['source_id']):raise SyncError('identity_conflict')
                     actual=self.bridge.call('user',config['server'],uuid=binding['uuid'])
                     totals=self.totals(uid,now)
-                    values={f:totals['values'].get(metric) or 'Niet beschikbaar' for f,metric in config['mapping'].items() if metric not in {'none','updated'}}
+                    values={f:totals['loxone_values'].get(metric,'0') for f,metric in config['mapping'].items() if metric not in {'none','updated'}}
                     patch={f:v for f,v in values.items() if actual['fields'].get(f)!=v}
                     content_at=saved.get('last_content_update')
                     attempt=saved.get('attempt')
                     if not patch and attempt and all(actual['fields'].get(f)==v for f,v in attempt['fields'].items()):
-                        content_at=attempt['at']  # Lost response, subsequently confirmed by read-back.
+                        content_at=attempt.get('content_at',attempt['at'])  # Lost response, subsequently confirmed by read-back.
                     if patch:
                         content_at=now
-                        stamp=now.astimezone(ZoneInfo(totals['timezone'])).strftime('%d/%m/%Y %H:%M')
+                        stamp=numeric_timestamp(now)
                         patch.update({f:stamp for f,m in config['mapping'].items() if m=='updated'})
+                    else:
+                        patch.update({f:numeric_timestamp(content_at) for f,m in config['mapping'].items() if m=='updated' and actual['fields'].get(f)!=numeric_timestamp(content_at)})
                     # Never write a stale calculation after an intervening correction.
                     self.renew(owner)
                     if self.hr.state()['revision']!=totals['hr_revision']:raise SyncError('busy')
@@ -339,7 +362,7 @@ class SyncService:
                             fresh=self.db.users.find_one({'_id':self._object_id(uid)})
                             fresh_source=self.source_identity(fresh) if fresh else None
                             if not fresh_source or self.identity_key(fresh_source)!=self.identity_key(binding['source_id']):raise SyncError('identity_conflict')
-                        self.db.loxone_sync_status.update_one({'_id':uid},{'$set':{'attempt':{'at':now,'fields':patch}}},upsert=True)
+                        self.db.loxone_sync_status.update_one({'_id':uid},{'$set':{'attempt':{'at':now,'fields':patch,'content_at':content_at}}},upsert=True)
                         self.bridge.call('patch',config['server'],uuid=binding['uuid'],fields=patch)
                         writes+=1
                     self.db.loxone_sync_status.replace_one({'_id':uid},{'_id':uid,'last_success':now,

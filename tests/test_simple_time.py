@@ -96,7 +96,7 @@ class SimpleTimeTests(unittest.TestCase):
         result=self.run_sync();self.assertEqual(result['writes'],1)
         binding=self.sync.config()['bindings'][self.uid]
         self.assertEqual(binding['uuid'],UUID);self.assertEqual(binding['matched_by'],'loxone_id')
-        self.assertEqual(self.bridge.fields['customField1'],'8u 00m')
+        self.assertEqual(self.bridge.fields['customField1'],'8')
         self.assertTrue(any(a['kind']=='automatic_binding' for a in self.db.loxone_sync_audit.find()))
     def test_renamed_account_still_matches_by_id(self):
         self.bridge.users[0]['name']='completely.different.name';self.configure();self.run_sync()
@@ -172,7 +172,7 @@ class SimpleTimeTests(unittest.TestCase):
         service=app.extensions['loxone_sync'];service.bridge=IdentityBridge()
         service.save({'revision':service.config()['revision'],'server':SERVER,'enabled':True,'interval':600,'mapping':{f:'month' if i==0 else 'none' for i,f in enumerate(FIELDS)},'owned_fields':['customField1'],'reason':'Synthetic delivery'},'synthetic.admin')
         with patch('app.loxone_sync.service.clock',return_value=NOW):result=service.run(NOW)
-        self.assertEqual(result['writes'],1);self.assertEqual(service.bridge.fields['customField1'],'8u 00m')
+        self.assertEqual(result['writes'],1);self.assertEqual(service.bridge.fields['customField1'],'8')
         self.assertEqual(db.hr_state.find_one() ['approvals'],[])
         self.assertEqual(service.config()['bindings'][uid]['uuid'],UUID)
 

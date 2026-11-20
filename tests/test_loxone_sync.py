@@ -76,7 +76,7 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(self.run_sync(NOW+timedelta(minutes=9,seconds=59)),{'waiting':True})
         self.assertFalse(self.bridge.writes)
         self.assertEqual(self.run_sync(NOW+timedelta(minutes=10))['writes'],1)
-        self.assertEqual(self.bridge.fields['customField1'],'6u 30m')
+        self.assertEqual(self.bridge.fields['customField1'],'6.5')
     def test_manual_sync_can_run_before_ten_minutes(self):
         self.configure(True);self.link();self.run_sync()
         self.db.badge_logs.update_one({'action':'STOP'},{'$set':{'timestamp':'2026-11-09T15:00Z'}})
@@ -133,7 +133,7 @@ class SyncTests(unittest.TestCase):
         self.configure(True);self.link();self.run_sync()
         patch_fields=self.bridge.writes[0][1]['fields']
         self.assertEqual(set(patch_fields),{'customField1','customField2'})
-        self.assertEqual(patch_fields['customField1'],'6u 00m')
+        self.assertEqual(patch_fields['customField1'],'6')
         self.assertEqual(self.bridge.fields['customField3'],'Unmanaged customField3')
         self.run_sync(NOW+timedelta(minutes=10));self.assertEqual(len(self.bridge.writes),1)
     def test_timestamp_alone_does_not_trigger_a_write(self):
@@ -167,7 +167,7 @@ class SyncTests(unittest.TestCase):
         self.hr.correct({'revision':1,'employee_id':self.uid,'target_id':str(original['_id']),
             'new':{'action':'STOP','timestamp':'2026-11-09T15:30Z'},'reason':'Synthetic correction'},'synthetic.hr','correction-id-001')
         self.run_sync(NOW+timedelta(hours=1,minutes=6))
-        self.assertEqual(self.bridge.fields['customField1'],'7u 00m')
+        self.assertEqual(self.bridge.fields['customField1'],'7')
         self.assertEqual(self.db.badge_logs.find_one({'_id':original['_id']})['timestamp'],original['timestamp'])
     def test_unreliable_data_is_explicitly_unavailable(self):
         self.events([('START','2026-11-09T09:00Z')]);result=self.sync.totals(self.uid,NOW)
@@ -189,7 +189,7 @@ class SyncTests(unittest.TestCase):
         result=self.run_sync(NOW+timedelta(minutes=10));self.assertEqual(result['writes'],0)
     def test_external_drift_is_repaired_only_in_managed_fields(self):
         self.configure(True);self.link();self.run_sync();self.bridge.fields['customField1']='wrong'
-        self.run_sync(NOW+timedelta(minutes=10));self.assertEqual(self.bridge.fields['customField1'],'6u 00m')
+        self.run_sync(NOW+timedelta(minutes=10));self.assertEqual(self.bridge.fields['customField1'],'6')
     def test_bridge_failure_never_fails_timekeeping_notification(self):
         with patch.object(self.db.loxone_sync_meta,'update_one',side_effect=RuntimeError('synthetic-private-string')):
             self.hr.commit(self.hr.state(),deepcopy(self.hr.state()))
@@ -199,7 +199,7 @@ class SyncTests(unittest.TestCase):
         self.bridge.error=None
         self.db.badge_logs.update_one({'action':'STOP'},{'$set':{'timestamp':'2026-11-09T15:00Z'}})
         self.run_sync(NOW+timedelta(minutes=10))
-        self.assertEqual(self.bridge.fields['customField1'],'6u 30m')
+        self.assertEqual(self.bridge.fields['customField1'],'6.5')
     def test_unsafe_readback_is_quarantined_until_explicit_relink(self):
         self.configure(True);self.link();self.bridge.error='verification';self.run_sync()
         self.bridge.error=None;self.run_sync(NOW+timedelta(minutes=10))
