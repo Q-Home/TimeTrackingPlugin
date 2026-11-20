@@ -37,6 +37,34 @@ class EngineTests(unittest.TestCase):
             'calendar':[],'policies':[]}
     def calc(self,events,start='2026-11-09',end=None,**kw):
         return calculate(events,self.state,self.employee,date.fromisoformat(start),date.fromisoformat(end or start),now=kw.pop('now',NOW),**kw)
+    def test_unclosed_yesterday_does_not_start_today_at_midnight(self):
+        events=[event('START','2026-11-19T07:50+01:00'),event('START','2026-11-19T12:17+01:00')]
+        now=datetime(2026,11,20,5,26,tzinfo=timezone.utc)
+        result=self.calc(events,start='2026-11-19',end='2026-11-20',now=now)
+        yesterday,today=result['days']
+        self.assertGreater(yesterday['work_seconds'],0)
+        self.assertIn('missing_stop',[a['code'] for a in yesterday['anomalies']])
+        self.assertEqual(today['work_seconds'],0);self.assertEqual(today['periods'],[])
+        self.assertEqual(today['events'],[]);self.assertEqual(today['open_status'],'idle')
+        only_today=self.calc(events,start='2026-11-20',now=now)['days'][0]
+        self.assertEqual(only_today['work_seconds'],0)
+    def test_next_day_real_start_opens_a_new_session_after_missing_stop(self):
+        events=[event('START','2026-11-09T08:00+01:00'),event('START','2026-11-10T08:00+01:00'),event('STOP','2026-11-10T16:00+01:00')]
+        result=self.calc(events,end='2026-11-10')
+        self.assertEqual(result['days'][1]['work_seconds'],8*3600)
+        self.assertNotIn('duplicate_start',[a['code'] for a in result['days'][1]['anomalies']])
+    def test_automatic_start_does_not_create_hours(self):
+        result=self.calc([event('START','2026-11-09T08:00Z',raw_data={'auto_stop':True}),event('STOP','2026-11-09T16:00Z')])
+        self.assertEqual(result['summary']['work_seconds'],0)
+        self.assertIn('invalid_start_source',[a['code'] for a in result['days'][0]['anomalies']])
+    def test_unclosed_night_shift_only_counts_next_day_after_real_stop(self):
+        events=[event('START','2026-11-09T22:00+01:00')]
+        now=datetime(2026,11,10,4,tzinfo=timezone.utc)
+        result=self.calc(events,end='2026-11-10',now=now)
+        self.assertEqual([d['work_seconds'] for d in result['days']],[7200,0])
+        events.append(event('STOP','2026-11-10T06:00+01:00'))
+        result=self.calc(events,end='2026-11-10')
+        self.assertEqual([d['work_seconds'] for d in result['days']],[7200,21600])
     def test_normal_workday_with_multiple_breaks(self):
         events=[event(a,'2026-11-09T'+t+'+01:00') for a,t in [('START','08:00'),('BREAK','10:00'),('RETURN','10:15'),('BREAK','12:00'),('RETURN','12:45'),('STOP','17:00')]]
         result=self.calc(events)['days'][0]
@@ -145,11 +173,24 @@ class WorkflowTests(unittest.TestCase):
         result=self.hr.details(self.uid,date(2020,1,6),date(2020,1,6))
         self.assertEqual(result['approval_status'],'bron_gewijzigd')
         with self.assertRaises(HRError):self.approve('close')
+    def test_new_manual_start_and_scan_in_are_rejected(self):
+        for action in ('START','SCAN_IN'):
+            data=self.data(employee_id=self.uid,new={'action':action,'timestamp':'2020-01-06T07:00Z'})
+            with self.assertRaises(HRError):self.hr.correct(data,'synthetic.hr',identifier())
+        self.assertEqual(self.hr.state()['corrections'],[])
+    def test_stop_cannot_be_changed_into_a_start(self):
+        data=self.data(employee_id=self.uid,target_id=str(self.stop),new={'action':'START','timestamp':'2020-01-06T14:00Z'})
+        with self.assertRaises(HRError):self.hr.correct(data,'synthetic.hr',identifier())
+    def test_existing_badge_start_can_be_corrected_without_mutating_source(self):
+        data=self.data(employee_id=self.uid,target_id=str(self.start),new={'action':'START','timestamp':'2020-01-06T07:55Z'})
+        self.hr.correct(data,'synthetic.hr',identifier())
+        self.assertEqual(self.db.badge_logs.find_one({'_id':self.start})['timestamp'],'2020-01-06T08:00Z')
+        self.assertEqual(self.hr.events(self.uid)[0]['timestamp'],'2020-01-06T07:55:00Z')
     def test_dst_manual_correction_requires_valid_local_time_and_fold(self):
         for local in ('2026-03-29T02:30','2026-10-25T02:30'):
-            data=self.data(employee_id=self.uid,new={'action':'START','local_time':local})
+            data=self.data(employee_id=self.uid,new={'action':'STOP','local_time':local})
             with self.assertRaises(HRError):self.hr.correct(data,'synthetic.hr',identifier())
-        data=self.data(employee_id=self.uid,new={'action':'START','local_time':'2026-10-25T02:30','fold':1})
+        data=self.data(employee_id=self.uid,new={'action':'STOP','local_time':'2026-10-25T02:30','fold':1})
         result=self.hr.correct(data,'synthetic.hr',identifier())
         self.assertEqual(result['correction']['new']['timestamp'],'2026-10-25T01:30:00Z')
     def test_identity_migration_is_explicit_and_idempotent(self):

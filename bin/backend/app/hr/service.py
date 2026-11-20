@@ -12,6 +12,7 @@ import json
 import re
 import uuid
 from zoneinfo import ZoneInfo
+from bson import ObjectId
 from pymongo.errors import DuplicateKeyError
 from app.utils.external_identity import external_id_values
 from app.hr.engine import (ACTIONS, DEFAULT_RULES, calculate, day, effective_events,
@@ -385,6 +386,10 @@ class HRService:
                     if len({c.utcoffset() for c in valid})>1 and new.get('fold') not in (0,1):raise HRError('Dit wintertijdstip komt tweemaal voor. Kies het eerste of tweede uur.')
                     new={**new,'timestamp':iso(naive.replace(tzinfo=tz,fold=new.get('fold') or 0))}
                 if new.get('action') not in ACTIONS:raise HRError('Ongeldige registratieactie.')
+                if new.get('action') in {'START','SCAN_IN'}:
+                    original=self.db.badge_logs.find_one({'_id':ObjectId(target)}) if ObjectId.is_valid(target) else None
+                    if not original or original.get('action','').upper() not in {'START','SCAN_IN'} or original.get('raw_data',{}).get('auto_stop'):
+                        raise HRError('Een nieuwe START moet uit een MQTT-badgeregistratie komen. Alleen een bestaande badge-start kan worden gecorrigeerd.')
                 try:ts=iso(new['timestamp'])
                 except (ValueError,TypeError,KeyError):raise HRError('Een tijdstip met tijdzone is verplicht.')
                 if isinstance(new['timestamp'],str) and datetime.fromisoformat(new['timestamp'].replace('Z','+00:00')).tzinfo is None:raise HRError('Geef een expliciete tijdzone of UTC Z op.')

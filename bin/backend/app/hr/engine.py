@@ -166,6 +166,20 @@ def calculate(events, state, employee, start, end, now=None, as_of=None):
             interval(max(a, left), min(b, right), kind, provisional and i == len(segments)-1)
         previous_end = max(previous_end or right, right)
         segments.clear()
+    def finish_unclosed(limit):
+        # An unconfirmed session must not accrue hours on subsequent days.
+        limit = min(limit, local_bounds(session_started.astimezone(tz).date(), timezone_name)[1])
+        segments.append((opened, limit, 'work' if status == 'working' else 'break'))
+        finish_session(limit, True)
+        for key, row in days.items():
+            lo, hi = bounds[key]
+            if hi > session_started and lo < limit:
+                row['open_status'] = status
+                if day(key) < today:
+                    anomaly(max(session_started, lo), 'missing_stop', 'Open sessie zonder afsluitende stop; uren lopen niet door naar de volgende dag.', open_event)
+                if (now-session_started).total_seconds() > policy(state, day(key))['max_open_hours']*3600:
+                    anomaly(max(session_started, lo), 'long_open', 'Open sessie langer dan de ingestelde grens.', open_event)
+
     for ts, ident, action, event in sorted(parsed, key=lambda e:(e[0], e[1])):
         action = {'SCAN_IN':'START', 'SCAN_OUT':'STOP'}.get(action, action)
         key = str(ts.astimezone(tz).date())
@@ -184,6 +198,12 @@ def calculate(events, state, employee, start, end, now=None, as_of=None):
                 row['events'][-1]['calculation_timestamp'] = iso(rounded_instant(ts, event_rules, event_rules['rounding_start' if action == 'START' else 'rounding_stop']))
         if action == 'SCAN': continue
         if action == 'START':
+            if source == 'automatic':
+                anomaly(ts, 'invalid_start_source', 'Een automatische START is niet toegestaan; een MQTT-badgeregistratie is vereist.', ident)
+                continue
+            if status != 'idle' and ts.astimezone(tz).date() > session_started.astimezone(tz).date():
+                finish_unclosed(ts)
+                status, opened, open_event, session_started = 'idle', None, None, None
             if status != 'idle': anomaly(ts, 'duplicate_start', 'Dubbele start zonder geldige stop.', ident)
             else: status, opened, open_event, session_started = 'working', ts, ident, ts
         elif action == 'BREAK':
@@ -201,16 +221,7 @@ def calculate(events, state, employee, start, end, now=None, as_of=None):
                 finish_session(ts)
                 status, opened, open_event, session_started = 'idle', None, None, None
     if opened:
-        segments.append((opened, horizon, 'work' if status == 'working' else 'break'))
-        finish_session(horizon, True)
-        for key, row in days.items():
-            lo, hi = local_bounds(day(key), timezone_name)
-            if hi > opened and lo < horizon:
-                row['open_status'] = status
-                if day(key) < today:
-                    anomaly(max(opened, lo), 'missing_stop', 'Open sessie zonder afsluitende stop.', open_event)
-                if (now-session_started).total_seconds() > policy(state, day(key))['max_open_hours']*3600:
-                    anomaly(max(opened, lo), 'long_open', 'Open sessie langer dan de ingestelde grens.', open_event)
+        finish_unclosed(horizon)
     for key, row in days.items():
         rules = policy(state, day(key))
         # Never deduct an automatic break in addition to actual recorded breaks.

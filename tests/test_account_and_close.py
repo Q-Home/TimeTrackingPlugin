@@ -132,6 +132,38 @@ class NightlyCloseTests(unittest.TestCase):
                 'rules':{**DEFAULT_RULES,'auto_stop_mode':mode},'reason':'Synthetic close policy'},'synthetic.hr',identifier())
             count,counters=self.night();self.assertEqual(count,0);self.assertEqual(counters[key],1)
         self.assertEqual(len(self.hr.state()['proposals']),1)
+    def test_catch_up_all_closes_older_sessions_and_keeps_today_open(self):
+        self.event('START','2026-10-01T08:00');self.event('START','2026-11-09T08:00')
+        self.event('START','2026-11-09T23:01')  # Nov 10 in the company timezone.
+        count=self.module.run(self.db.badge_logs,datetime(2026,11,9),8,2,False,self.hr,
+            completed_days=True,run_time=FrozenDateTime.now(timezone.utc),catch_up_all=True)
+        self.assertEqual(count,2)
+        self.assertEqual(self.db.badge_logs.count_documents({'action':'START'}),3)
+        stops=list(self.db.badge_logs.find({'action':'STOP'}).sort('timestamp',1))
+        self.assertEqual([e['timestamp'] for e in stops],[datetime(2026,10,1,16),datetime(2026,11,9,16)])
+        self.assertTrue(all(e['raw_data']['auto_stop'] for e in stops))
+        self.assertEqual(self.module.run(self.db.badge_logs,datetime(2026,11,9),8,2,False,self.hr,
+            completed_days=True,run_time=FrozenDateTime.now(timezone.utc),catch_up_all=True),0)
+    def test_next_days_real_stop_does_not_hide_previous_forgotten_session(self):
+        self.event('START','2026-11-08T08:00');self.event('START','2026-11-09T08:00');self.event('STOP','2026-11-09T16:00')
+        self.assertEqual(self.night()[0],1)
+        self.assertEqual(self.db.badge_logs.count_documents({'action':'START'}),2)
+        self.assertEqual(self.db.badge_logs.count_documents({'action':'STOP'}),2)
+    def test_inferred_stop_cannot_close_next_real_session(self):
+        self.event('START','2026-11-08T20:00');self.event('START','2026-11-09T03:00');self.event('STOP','2026-11-09T11:00')
+        self.assertEqual(self.night()[0],1)
+        auto=self.db.badge_logs.find_one({'raw_data.auto_stop':True})
+        self.assertLess(auto['timestamp'],datetime(2026,11,9,3))
+        from datetime import date
+        detail=self.hr.details(self.uid,date(2026,11,9),date(2026,11,9),now=FrozenDateTime.now(timezone.utc))
+        self.assertGreaterEqual(detail['summary']['work_seconds'],8*3600)
+    def test_simple_mode_applies_stop_without_a_proposal(self):
+        self.hr.initialize_simple_mode()
+        self.event('START','2026-11-09T08:00')
+        self.hr.setting('policy',{'revision':self.hr.state()['revision'],'effective_from':'2026-01-01',
+            'rules':{**DEFAULT_RULES,'auto_stop_mode':'propose'},'reason':'Synthetic old proposal policy'},'synthetic.hr',identifier())
+        self.assertEqual(self.night()[0],1)
+        self.assertEqual(self.hr.state()['proposals'],[])
     def test_dry_run_does_not_write(self):
         self.event('START','2026-11-09T08:00');self.assertEqual(self.night(True)[0],1)
         self.assertEqual(self.db.badge_logs.count_documents({'action':'STOP'}),0)
@@ -156,11 +188,9 @@ class NightlyCloseTests(unittest.TestCase):
         self.event('START','2026-11-09T08:00')
         self.db.badge_logs.insert_one({'employee_id':self.uid,'username':'synthetic.employee','action':'STOP','timestamp':'invalid'})
         count,counters=self.night();self.assertEqual(count,0);self.assertGreater(counters['invalid_source'],0)
-    def test_cron_has_one_locked_nightly_run_and_no_midday_run(self):
-        cron=(ROOT/'cron/crontab').read_text()
-        entries=[line for line in cron.splitlines() if line and not line.startswith('#') and 'auto_stop_missing_badges.py' in line]
-        self.assertEqual(len(entries),1);self.assertTrue(entries[0].startswith('5 0 * * * loxberry flock -n '))
-        self.assertIn('--completed-days',entries[0])
-
-
+    def test_packaged_cron_defers_auto_close_to_managed_timer(self):
+        text=(ROOT/'cron/crontab').read_text(encoding='utf-8')
+        entries=[line for line in text.splitlines() if line.strip() and not line.lstrip().startswith('#') and 'auto_stop_missing_badges.py' in line]
+        self.assertEqual(entries,[])
+        self.assertIn('timetracking-auto-close.timer',text)
 if __name__=='__main__':unittest.main()

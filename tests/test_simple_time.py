@@ -56,7 +56,8 @@ class SimpleTimeTests(unittest.TestCase):
         self.assertEqual(sum(a['kind']=='workflow' for a in state['audit']),1)
         self.assertFalse(policy(state,date(2026,11,19))['approval_required'])
     def test_automatic_stop_is_usable_without_manual_approval(self):
-        self.events([('START','07:00'),('STOP','15:00')],on='2026-11-18',raw_data={'auto_stop':True})
+        self.events([('START','07:00')],on='2026-11-18')
+        self.events([('STOP','15:00')],on='2026-11-18',raw_data={'auto_stop':True})
         detail=self.hr.details(self.uid,date(2026,11,18),date(2026,11,18),now=NOW)
         self.assertEqual(detail['approval_status'],'automatisch_goedgekeurd')
         self.assertEqual(detail['days'][0]['anomalies'],[])
