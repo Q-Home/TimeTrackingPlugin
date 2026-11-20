@@ -249,7 +249,7 @@ function renderUsers() {
           <a class="iq-bg-primary ${user.blocked ? "js-unblock-user" : "js-block-user"} mr-1 mb-1" href="#" title="${user.blocked ? "Unblock" : "Block"}">
             ${user.blocked ? "✅" : "🚫"}
           </a>
-          <a class="iq-bg-primary js-delete-user mb-1" href="#" title="Delete">
+          <a class="iq-bg-primary js-delete-user mb-1" href="#" title="Archiveren">
             <i class="ri-delete-bin-line"></i>
           </a>
         </div>
@@ -357,7 +357,7 @@ function confirmDeleteUser(username) {
     return;
   }
 
-  const userConfirmed = confirm(`Weet je zeker dat je de gebruiker "${username}" wilt verwijderen?`);
+  const userConfirmed = confirm(`Wil je de medewerker "${username}" archiveren? De bestaande registraties blijven bewaard; de medewerker verdwijnt uit de actieve Loxone-synchronisatie.`);
   if (userConfirmed) {
     deleteUser(username);
   }
@@ -448,7 +448,7 @@ async function deleteUser(username) {
       throw new Error(result.error || result.message || "Unknown error occurred.");
     }
 
-    notify(result.message || "Gebruiker verwijderd.", "success");
+    notify(result.message || "Medewerker gearchiveerd.", "success");
     loadUsers();
   } catch (error) {
     console.error("Delete user error:", error);

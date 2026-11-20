@@ -102,6 +102,13 @@ class SyncService:
         if len({self.identity_key(v['uuid']) for v in resolved})!=1:raise SyncError('identity_source_conflict')
         return resolved[0]
 
+    def binding_collisions(self,bindings,uid,remote_uuid):
+        # Archiving keeps history and the old binding, but releases its live
+        # synchronization reservation. Blocked/unknown accounts still reserve it.
+        archived={str(user['_id']) for user in self.db.users.find({'archived':True},{'_id':1})}
+        return [other for other,binding in bindings.items() if other!=uid and other not in archived
+                and self.identity_key(binding['uuid'])==self.identity_key(remote_uuid)]
+
     def automatic_links(self,config,owner):
         if not config['auto_link'] or not config['server']:return config,{}
         users=list(self.db.users.find({'archived':{'$ne':True},'blocked':{'$ne':True}}))
@@ -122,6 +129,11 @@ class SyncService:
             source=values[0]
             if uid in errors:continue
             previous=config['bindings'].get(uid)
+            if previous:
+                collisions=self.binding_collisions(new['bindings'],uid,previous['uuid'])
+                if collisions:
+                    errors.update({other:'identity_duplicate' for other in [uid,*collisions]})
+                    continue
             # UUIDs are stable. Numeric/text userid mappings are re-resolved each
             # sweep, so reassigning an ID cannot silently redirect someone’s hours.
             if len(values)==1 and previous and not previous.get('source_keys') and previous.get('matched_by')=='loxone_id' and self.identity_key(source).startswith('uuid:') and self.identity_key(previous['source_id'])==self.identity_key(source):
@@ -131,7 +143,7 @@ class SyncService:
                 self.renew(owner)
                 remote=self.resolve_sources(config['server'],values)
                 if previous and self.identity_key(previous['uuid'])!=self.identity_key(remote['uuid']):raise SyncError('identity_binding_conflict')
-                collisions=[other for other,binding in new['bindings'].items() if other!=uid and self.identity_key(binding['uuid'])==self.identity_key(remote['uuid'])]
+                collisions=self.binding_collisions(new['bindings'],uid,remote['uuid'])
                 if collisions:
                     errors.update({other:'identity_duplicate' for other in collisions})
                     raise SyncError('identity_duplicate')
@@ -232,7 +244,7 @@ class SyncService:
             else:matches=[u for u in users if u['name']==name]
             if len(matches)!=1:raise HRError('Geen unieke exacte overeenkomst. Selecteer handmatig een bestaande Loxone-gebruiker.',409)
             user=matches[0]
-            if any(k!=uid and b['uuid']==user['uuid'] for k,b in old['bindings'].items()):
+            if self.binding_collisions(old['bindings'],uid,user['uuid']):
                 raise HRError('Deze Loxone-gebruiker is al aan een andere medewerker gekoppeld.',409)
             binding={'uuid':user['uuid'],'name':user['name'],'lookup_name':name,'server':old['server']}
             new=deepcopy(old);new['bindings'][uid]=binding;new['revision']+=1
@@ -254,7 +266,7 @@ class SyncService:
             if uid in errors:raise SyncError(errors[uid])
             binding=config['bindings'][uid]
             if self.identity_key(binding['uuid'])!=self.identity_key(previous['uuid']):raise SyncError('identity_binding_conflict')
-            if any(other!=uid and self.identity_key(b['uuid'])==self.identity_key(binding['uuid']) for other,b in config['bindings'].items()):raise SyncError('identity_duplicate')
+            if self.binding_collisions(config['bindings'],uid,binding['uuid']):raise SyncError('identity_duplicate')
             actual=self.bridge.call('user',config['server'],uuid=binding['uuid'])
             if self.identity_key(actual['uuid'])!=self.identity_key(binding['uuid']):raise SyncError('identity_binding_conflict')
             saved=self.db.loxone_sync_status.find_one({'_id':uid}) or {}
