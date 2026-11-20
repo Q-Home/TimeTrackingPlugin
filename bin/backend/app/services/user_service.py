@@ -243,8 +243,8 @@ class UserService:
             if result.matched_count == 0:
                 return error_response("User not found", 404)
 
-            self.log_repository.info(f"User deleted: {username}")
-            return success_response(None, "User deleted successfully", 200)
+            self.log_repository.info(f"User archived: {username}")
+            return success_response(None, "Medewerker gearchiveerd. Bestaande registraties blijven bewaard.", 200)
 
         except Exception as e:
             self.log_repository.error(f"Error deleting user {username}: {e}")
