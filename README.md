@@ -43,3 +43,5 @@ Zie [versie 1.3.1: synchronisatietaak herstellen](docs/SYNC_SCHEDULER_REPAIR.md)
 ## Q-Home en automatische releases
 
 Vanaf versie 1.3.4 is de uitgever Q-Home. Bestaande installaties hebben een eenmalige identiteitsomzetting nodig **vóór** installatie van de nieuwe ZIP. Zie [omzetting en automatische updates](docs/QHOME_RELEASE_UPDATES.md).
+
+Vanaf 1.3.8 maakt een geslaagde merge naar main automatisch een stabiele release en werkt de Qbox-updatefeed bij, met automatische patchnummering waar nodig. Zie [automatische releases](docs/AUTOMATIC_MAIN_RELEASES.md).

@@ -1,5 +1,13 @@
 name: Publish LoxBerry release feed
 on:
+  workflow_call:
+    inputs:
+      source_sha:
+        type: string
+        required: true
+      auto_release:
+        type: boolean
+        default: false
   release:
     types: [published]
 permissions:
@@ -9,16 +17,27 @@ concurrency:
   cancel-in-progress: false
 jobs:
   publish:
-    if: ${{ !github.event.release.prerelease && !github.event.release.draft }}
+    if: ${{ github.event_name != 'release' || (!github.event.release.prerelease && !github.event.release.draft) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ inputs.source_sha || github.event.release.tag_name }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Publish tested main version
+        id: release
+        if: ${{ inputs.auto_release }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: python tools/automatic_release.py --sha "$SOURCE_SHA" --event-output "$RUNNER_TEMP/published-release.json"
+      - name: Use manually published release
+        if: ${{ !inputs.auto_release }}
+        run: cp "$GITHUB_EVENT_PATH" "$RUNNER_TEMP/published-release.json"
       - name: Validate release and publish feed
+        if: ${{ !inputs.auto_release || steps.release.outputs.publish == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -30,7 +49,7 @@ jobs:
             git worktree add --detach "$feed_dir" HEAD
             git -C "$feed_dir" switch --orphan updates
           fi
-          python tools/release_feed.py --event "$GITHUB_EVENT_PATH" --source . --previous "$feed_dir/release.cfg" --output "$feed_dir/release.cfg"
+          python tools/release_feed.py --event "$RUNNER_TEMP/published-release.json" --source . --previous "$feed_dir/release.cfg" --output "$feed_dir/release.cfg"
           git -C "$feed_dir" config user.name 'Q-Home'
           git -C "$feed_dir" config user.email 'info@q-home.be'
           git -C "$feed_dir" add release.cfg
