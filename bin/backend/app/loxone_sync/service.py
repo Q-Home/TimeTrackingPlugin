@@ -14,7 +14,7 @@ from .bridge import Bridge, SyncError, MESSAGES, TRANSPORT_WARNINGS
 FIELDS=tuple('customField'+str(i) for i in range(1,6))
 METRICS={'none','today','week','month','balance','status','updated'}
 UNRELIABLE={'duplicate_start','invalid_break','invalid_return','missing_start','missing_stop',
-    'long_open','invalid_action','invalid_timestamp','automatic_stop','approval_source_changed','no_registration'}
+    'long_open','invalid_action','invalid_timestamp','invalid_start_source','automatic_stop','approval_source_changed','no_registration'}
 
 
 def clock(): return datetime.now(timezone.utc)
@@ -220,7 +220,7 @@ class SyncService:
         for metric,start in starts.items():
             result=self.hr.details(uid,start,today,state,now,str(today));details[metric]=result
             warnings=[a['message'] for d in result['days'] for a in d['anomalies']+d.get('notes',[])]
-            bad=[a['message'] for d in result['days'] for a in d['anomalies'] if a['code'] in ({'invalid_timestamp','invalid_action'} if simple else UNRELIABLE)]
+            bad=[a['message'] for d in result['days'] for a in d['anomalies'] if a['code'] in ({'invalid_timestamp','invalid_action','invalid_start_source'} if simple else UNRELIABLE)]
             has_source=any(d['events'] or d['periods'] for d in result['days'])
             if not simple and not has_source and result['summary']['expected_seconds']!=0:bad.append('Geen betrouwbare registratiebron voor deze periode.')
             provisional[metric]=result['summary']['provisional']
