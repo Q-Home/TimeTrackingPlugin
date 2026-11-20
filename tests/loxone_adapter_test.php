@@ -202,7 +202,7 @@ foreach (['lastEdit','lastedit'] as $timestampKey) {
             if (strpos($command,'/jdev/sps/addoredituser/')===0) $fixture[$changedKey]=$changedKey==='userRights'?0:'unexpected change';
             return $reply;
         };
-        fails('verification',function() use($badEnv,$server,$uuid){sync_dispatch(['operation'=>'patch','server'=>$server,'uuid'=>$uuid,'fields'=>['customField1'=>'7u 25m']],$badEnv);});
+        fails($changedKey==='customField1'?'verification_fields':'verification_attributes',function() use($badEnv,$server,$uuid){sync_dispatch(['operation'=>'patch','server'=>$server,'uuid'=>$uuid,'fields'=>['customField1'=>'7u 25m']],$badEnv);});
         $fixture=$original;unset($fixture['lastedit']);$fixture[$timestampKey]=1;
     }
 }

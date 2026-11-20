@@ -22,7 +22,12 @@ MESSAGES = {
     'response_api_info':'De verbinding werkt, maar het antwoord met Miniserverversie en serienummer wordt niet herkend.',
     'response_field_names':'De verbinding werkt, maar het antwoord met de namen van de vijf gebruikersvelden wordt niet herkend.',
     'response_user_list':'De verbinding werkt, maar de gebruikerslijst heeft een onverwachte of ongeldige structuur.',
-    'verification':'De teruggelezen custom fields komen niet overeen. Controleer de gebruiker voordat je opnieuw probeert.',
+    'verification':'Een eerdere verificatiefout heeft updates gepauzeerd. Controleer de bestaande koppeling en hervat om opnieuw te proberen.',
+    'verification_fields':'De geschreven custom fields kwamen bij teruglezen niet overeen. Updates zijn gepauzeerd.',
+    'verification_attributes':'De custom fields zijn geschreven, maar een ander gebruikerskenmerk veranderde tijdens de controle. Updates zijn gepauzeerd.',
+    'identity_source_conflict':'De ontvangen bron-ID’s zijn niet bevestigd als dezelfde Loxone-gebruiker. Er wordt niets geschreven.',
+    'identity_duplicate':'Meerdere lokale medewerkers of koppelingen verwijzen naar dezelfde Loxone-identiteit. Er wordt niets geschreven.',
+    'identity_binding_conflict':'De ontvangen Loxone-ID wijst naar een andere UUID dan de bestaande koppeling. De koppeling wordt niet automatisch vervangen.',
     'invalid':'Ongeldige of niet-toegestane adapteraanvraag.',
     'busy':'Er wordt al gesynchroniseerd of ingesteld. Probeer later opnieuw.',
 }

@@ -145,7 +145,8 @@ class SimpleTimeTests(unittest.TestCase):
         self.assertEqual(self.sync.config()['bindings'][self.uid]['source_id'],UUID)
     def test_contradictory_event_id_is_not_auto_linked(self):
         self.events([('START','07:00')],user_id='OTHER-ID');self.configure();result=self.run_sync()
-        self.assertEqual(result['failed'],1);self.assertFalse(self.bridge.resolutions)
+        self.assertEqual(result['failed'],1);self.assertFalse(self.bridge.writes)
+        self.assertEqual(self.sync.config()['bindings'],{})
     def test_existing_manual_link_to_different_uuid_is_not_overwritten(self):
         other='22345678-1234-1234-1234567890abcdef'
         self.configure();self.db.loxone_sync_config.update_one({'_id':'settings'},{'$set':{'bindings':{self.uid:{'uuid':other,'name':'Other','server':SERVER}}}})
